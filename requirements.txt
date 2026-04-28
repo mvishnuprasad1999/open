@@ -1,19 +1,15 @@
 fastapi
+uvicorn
+gunicorn
 sqlalchemy
 pydantic-settings
-passlib
-jose
-datetime
-pgvector
 python-jose
-cloudinary
-pydantic[email]
 passlib[bcrypt]
 psycopg2-binary
 python-multipart
-gunicorn
-
-
+cloudinary
+pydantic[email]
+pgvector
 
 
 # from pydantic import BaseModel, EmailStr
