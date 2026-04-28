@@ -1,0 +1,76 @@
+fastapi
+sqlalchemy
+pydantic-settings
+passlib
+jose
+datetime
+pgvector
+python-jose
+cloudinary
+pydantic[email]
+passlib[bcrypt]
+psycopg2-binary
+python-multipart
+
+
+
+
+# from pydantic import BaseModel, EmailStr
+# from typing import List, Optional
+
+# class UserCreate(BaseModel):
+#     email: EmailStr
+#     username: str
+#     password: str
+#     # profile_title: Optional[str] = None  # optional at signup
+
+# class UserLogin(BaseModel):
+#     email: EmailStr
+#     password: str
+
+# class UserProfile(BaseModel):
+#     email: EmailStr
+#     username: str
+#     password: str
+#     profile_title: Optional[str] = None
+#     profile_image: Optional[str]=None
+#     profile_description=Optional[str]=None
+
+
+# class UserOut(BaseModel):
+#     id: int
+#     email: EmailStr
+#     username: str
+#     profile_title: Optional[str]
+#     profile_image: Optional[str]
+#     profile_description=Optional[str]
+
+
+#     class Config:
+#         from_attributes = True
+
+# class UpdateProfile(BaseModel):
+#     username: Optional[str] = None
+#     profile_title: Optional[str] = None  # update later
+
+# class Token(BaseModel):
+#     access_token: str
+#     token_type: str
+
+# # -------- POST --------
+# class PostImageOut(BaseModel):
+#     image_url: str
+
+#     class Config:
+#         from_attributes = True
+
+
+# class PostOut(BaseModel):
+#     id: int
+#     title: str
+#     content: str
+#     images: List[PostImageOut]
+#     user_id: int
+
+#     class Config:
+#         from_attributes = True    

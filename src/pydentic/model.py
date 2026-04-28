@@ -1,0 +1,48 @@
+from pydantic import BaseModel, EmailStr
+from typing import List, Optional
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserOut(BaseModel):
+    id: int
+    email: EmailStr
+    username: Optional[str]
+    profile_title: Optional[str]
+    profile_image: Optional[str]
+    profile_description: Optional[str]
+    is_profile_complete: bool
+
+    class Config:
+        from_attributes = True
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    is_profile_complete: bool
+
+
+class PostImageOut(BaseModel):
+    image_url: str
+
+    class Config:
+        from_attributes = True
+
+
+class PostOut(BaseModel):
+    id: int
+    title: str
+    content: str
+    images: List[PostImageOut]
+    user_id: int
+
+    class Config:
+        from_attributes = True
