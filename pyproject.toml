@@ -5,9 +5,11 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "bcrypt>=5.0.0",
     "cloudinary>=1.44.2",
     "datetime>=6.0",
     "fastapi>=0.136.0",
+    "gunicorn>=25.3.0",
     "jose>=1.0.0",
     "jwt>=1.4.0",
     "passlib[bcrypt]>=1.7.4",

@@ -10,6 +10,7 @@ python-multipart
 cloudinary
 pydantic[email]
 pgvector
+bcrypt
 
 
 # from pydantic import BaseModel, EmailStr
