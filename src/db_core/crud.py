@@ -25,7 +25,7 @@ def create_user(db: Session, email: str, password: str):
     return user
 
 
-def update_full_profile(db, user_id, username, title, desc, image_url, public_id):
+def update_full_profile(db, user_id,name, username, title, desc, image_url, public_id):
     user = get_user_by_id(db, user_id)
 
     # username uniqueness check
@@ -34,6 +34,8 @@ def update_full_profile(db, user_id, username, title, desc, image_url, public_id
         if existing and existing.id != user_id:
             raise HTTPException(status_code=400, detail="Username already taken")
         user.username = username
+    if name:
+        user.name = name    
 
     if title:
         user.profile_title = title
