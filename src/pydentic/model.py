@@ -14,6 +14,7 @@ class UserLogin(BaseModel):
 class UserOut(BaseModel):
     id: int
     email: EmailStr
+    name:Optional[str]
     username: Optional[str]
     profile_title: Optional[str]
     profile_image: Optional[str]

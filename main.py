@@ -55,6 +55,7 @@ def login(user: model.UserLogin, db: Session = Depends(get_db)):
 # ---------- CREATE / UPDATE PROFILE ----------
 @app.post("/create-profile", response_model=model.UserOut)
 def create_profile(
+    name:str = Form(...),
     username: str = Form(...),
     profile_title: str = Form(None),
     profile_description: str = Form(None),
@@ -70,7 +71,7 @@ def create_profile(
         public_id = result["public_id"]
 
     return crud.update_full_profile(
-        db, user_id, username, profile_title, profile_description, image_url, public_id
+        db, user_id,name, username, profile_title, profile_description, image_url, public_id
     )
 
 
