@@ -5,26 +5,26 @@ from src.db_core.setting import setup
 Base = declarative_base()
 
 engine = create_engine(
-    url=setup.DB_CONNECTION,
+    setup.DB_CONNECTION,
     pool_size=5,
     max_overflow=10,
     pool_pre_ping=True
 )
 
-# Enable pgvector extension
+# enable pgvector
 try:
     with engine.connect() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
         conn.commit()
-    print("✅ pgvector is ready!")
+    print("✅ pgvector ready")
 except Exception as e:
-    print(f"⚠️ pgvector: {e}")
+    print("⚠️ pgvector error:", e)
 
-Local_session = sessionmaker(bind=engine)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 def get_db():
-    session = Local_session()
+    db = SessionLocal()
     try:
-        yield session
+        yield db
     finally:
-        session.close()
+        db.close()

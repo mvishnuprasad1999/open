@@ -1,21 +1,19 @@
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import List
 
-from src.db_core import dbmodel, crud
+from src.db_core import crud, dbmodel
 from src.pydentic import model
-from src.db_core.db import engine, get_db
+from src.db_core.db import get_db
 from src.db_core.auth import verify_password, create_access_token, get_current_user
 from src.cloudinary_utils import upload_image
-
 from src.db_core.embeddings import get_embedding
-from sqlalchemy import text
-
-dbmodel.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
 
+# ---------- ROOT ----------
 @app.get("/")
 def welcome():
     return {"message": "welcome to open"}
@@ -55,10 +53,10 @@ def login(user: model.UserLogin, db: Session = Depends(get_db)):
     }
 
 
-# ---------- CREATE / UPDATE PROFILE ----------
+# ---------- PROFILE ----------
 @app.post("/create-profile", response_model=model.UserOut)
 def create_profile(
-    name:str = Form(...),
+    name: str = Form(...),
     username: str = Form(...),
     profile_title: str = Form(None),
     profile_description: str = Form(None),
@@ -74,11 +72,12 @@ def create_profile(
         public_id = result["public_id"]
 
     return crud.update_full_profile(
-        db, user_id,name, username, profile_title, profile_description, image_url, public_id
+        db, user_id, name, username,
+        profile_title, profile_description,
+        image_url, public_id
     )
 
 
-# ---------- GET PROFILE ----------
 @app.get("/me", response_model=model.UserOut)
 def get_profile(db: Session = Depends(get_db), user_id: int = Depends(get_current_user)):
     return crud.get_user_by_id(db, user_id)
@@ -125,6 +124,7 @@ def follow(user_id: int, db: Session = Depends(get_db), current: int = Depends(g
     return crud.follow(db, current, user_id)
 
 
+# ---------- RAG SEARCH ----------
 @app.get("/test-search-users")
 def test_search_users(query: str, db: Session = Depends(get_db)):
     query_embedding = get_embedding(query)
@@ -140,6 +140,7 @@ def test_search_users(query: str, db: Session = Depends(get_db)):
         {"id": r[0], "username": r[1], "desc": r[2]}
         for r in result
     ]
+
 
 @app.get("/test-search-posts")
 def test_search_posts(query: str, db: Session = Depends(get_db)):
