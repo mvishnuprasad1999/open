@@ -9,6 +9,7 @@ dependencies = [
     "cloudinary>=1.44.2",
     "datetime>=6.0",
     "fastapi>=0.136.0",
+    "groq>=1.2.0",
     "gunicorn>=25.3.0",
     "httpx>=0.28.1",
     "jose>=1.0.0",
@@ -20,6 +21,7 @@ dependencies = [
     "pydantic[email]>=2.13.2",
     "python-jose>=3.5.0",
     "python-multipart>=0.0.26",
+    "sentence-transformers>=5.4.1",
     "sqlalchemy>=2.0.49",
     "uvicorn>=0.45.0",
 ]

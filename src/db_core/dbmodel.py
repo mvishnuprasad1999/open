@@ -20,7 +20,7 @@ class User(Base):
 
     is_profile_complete = Column(Boolean, default=False)
 
-    embedding = Column(Vector(1536))
+    embedding = Column(Vector(384)) 
 
     posts = relationship("Post", back_populates="user")
 
@@ -33,7 +33,7 @@ class Post(Base):
     title = Column(String)
     content = Column(Text)
 
-    embedding = Column(Vector(1536))
+    embedding = Column(Vector(384)) 
 
     user = relationship("User", back_populates="posts")
     images = relationship("PostImage", back_populates="post")

@@ -13,7 +13,8 @@ pgvector
 bcrypt
 psycopg2-binary
 httpx
-
+groq
+sentence-transformers
 
 # from pydantic import BaseModel, EmailStr
 # from typing import List, Optional
