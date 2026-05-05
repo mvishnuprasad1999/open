@@ -4,7 +4,7 @@ from src.db_core.dbmodel import User
 from src.db_core import dbmodel
 from src.db_core.auth import hash_password
 import cloudinary.uploader
-from db_core.embeddings import get_embedding
+from src.db_core.embeddings import get_embedding
 
 
 def get_user_by_email(db: Session, email: str):
