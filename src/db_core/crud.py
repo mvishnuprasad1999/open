@@ -4,6 +4,7 @@ from src.db_core.dbmodel import User
 from src.db_core import dbmodel
 from src.db_core.auth import hash_password
 import cloudinary.uploader
+from db_core.embeddings import get_embedding
 
 
 def get_user_by_email(db: Session, email: str):
@@ -19,10 +20,13 @@ def create_user(db: Session, email: str, password: str):
         email=email,
         hashed_password=hash_password(password)
     )
+    
     db.add(user)
     db.commit()
     db.refresh(user)
+    
     return user
+
 
 
 def update_full_profile(db, user_id,name, username, title, desc, image_url, public_id):
@@ -51,7 +55,8 @@ def update_full_profile(db, user_id,name, username, title, desc, image_url, publ
         user.profile_image_id = public_id
 
     user.is_profile_complete = True
-
+    text = f"{user.username or ''} {user.name or ''} {user.profile_title or ''} {user.profile_description or ''}"
+    user.embedding = get_embedding(text)
     db.commit()
     db.refresh(user)
     return user
@@ -60,6 +65,8 @@ def update_full_profile(db, user_id,name, username, title, desc, image_url, publ
 # ---------- POSTS ----------
 def create_post(db, user_id, title, content):
     post = dbmodel.Post(user_id=user_id, title=title, content=content)
+    text = f"{title} {content}"
+    post.embedding = get_embedding(text)
     db.add(post)
     db.commit()
     db.refresh(post)

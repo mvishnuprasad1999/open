@@ -11,6 +11,8 @@ cloudinary
 pydantic[email]
 pgvector
 bcrypt
+psycopg2-binary
+httpx
 
 
 # from pydantic import BaseModel, EmailStr

@@ -1,3 +1,4 @@
+from pgvector import Vector
 from sqlalchemy import Column, Integer, String, ForeignKey, Text, Boolean
 from sqlalchemy.orm import relationship
 from src.db_core.db import Base
@@ -17,6 +18,27 @@ class User(Base):
     profile_description = Column(String, nullable=True)
 
     is_profile_complete = Column(Boolean, default=False)
+    from pgvector.sqlalchemy import Vector
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True)
+    name = Column(String, unique=True)
+    username = Column(String, unique=True)
+    hashed_password = Column(String)
+
+    profile_image_id = Column(String, nullable=True)
+    profile_image = Column(String, nullable=True)
+    profile_title = Column(String, nullable=True)
+    profile_description = Column(String, nullable=True)
+
+    is_profile_complete = Column(Boolean, default=False)
+
+    embedding = Column(Vector(1536))  # 👈 ADD THIS
+
+    posts = relationship("Post", back_populates="user")
 
     posts = relationship("Post", back_populates="user")
 

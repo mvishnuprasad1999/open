@@ -8,6 +8,9 @@ from src.db_core.db import engine, get_db
 from src.db_core.auth import verify_password, create_access_token, get_current_user
 from src.cloudinary_utils import upload_image
 
+from src.db_core.embeddings import get_embedding
+from sqlalchemy import text
+
 dbmodel.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
@@ -120,3 +123,36 @@ def save(post_id: int, db: Session = Depends(get_db), user_id: int = Depends(get
 @app.post("/follow/{user_id}")
 def follow(user_id: int, db: Session = Depends(get_db), current: int = Depends(get_current_user)):
     return crud.follow(db, current, user_id)
+
+
+@app.get("/test-search-users")
+def test_search_users(query: str, db: Session = Depends(get_db)):
+    query_embedding = get_embedding(query)
+
+    result = db.execute(text("""
+        SELECT id, username, profile_description
+        FROM users
+        ORDER BY embedding <-> :emb
+        LIMIT 5
+    """), {"emb": query_embedding}).fetchall()
+
+    return [
+        {"id": r[0], "username": r[1], "desc": r[2]}
+        for r in result
+    ]
+
+@app.get("/test-search-posts")
+def test_search_posts(query: str, db: Session = Depends(get_db)):
+    query_embedding = get_embedding(query)
+
+    result = db.execute(text("""
+        SELECT id, title, content
+        FROM posts
+        ORDER BY embedding <-> :emb
+        LIMIT 5
+    """), {"emb": query_embedding}).fetchall()
+
+    return [
+        {"id": r[0], "title": r[1], "content": r[2]}
+        for r in result
+    ]
