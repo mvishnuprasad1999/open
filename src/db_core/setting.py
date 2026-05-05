@@ -4,8 +4,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
     DB_CONNECTION: str
     SECRET_KEY:str
-    GROQ_API_KEY:str
-    GROQ_EMBEDDING_MODEL:str
+    # GROQ_API_KEY:str
+    # GROQ_EMBEDDING_MODEL:str
     ALGORITHM:str
     CLOUDINARY_API_KEY_SECRET:str
     CLOUDINARY_NAME:str
