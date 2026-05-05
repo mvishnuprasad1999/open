@@ -1,4 +1,4 @@
-from pgvector import Vector
+from pgvector.sqlalchemy import Vector as PGVector
 from sqlalchemy import Column, Integer, String, ForeignKey, Text, Boolean
 from sqlalchemy.orm import relationship
 from src.db_core.db import Base
@@ -36,7 +36,7 @@ class User(Base):
 
     is_profile_complete = Column(Boolean, default=False)
 
-    embedding = Column(Vector(1536))  # 👈 ADD THIS
+    embedding = Column(PGVector(1536))  # 👈 ADD THIS
 
     posts = relationship("Post", back_populates="user")
 
