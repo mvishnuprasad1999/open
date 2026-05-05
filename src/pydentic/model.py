@@ -43,6 +43,7 @@ class PostOut(BaseModel):
     title: str
     content: str
     images: List[PostImageOut]
+    user: UserOut 
     user_id: int
 
     class Config:

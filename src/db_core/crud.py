@@ -72,8 +72,10 @@ def add_post_image(db, post_id, url, pid):
     db.commit()
 
 
+from sqlalchemy.orm import joinedload
+
 def get_posts(db):
-    return db.query(dbmodel.Post).all()
+    return db.query(dbmodel.Post).options(joinedload(dbmodel.Post.user)).all()
 
 
 def like_post(db, uid, pid):
