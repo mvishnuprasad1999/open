@@ -125,6 +125,8 @@ def follow(user_id: int, db: Session = Depends(get_db), current: int = Depends(g
 
 
 # ---------- RAG SEARCH ----------
+from sqlalchemy import text
+
 @app.get("/test-search-users")
 def test_search_users(query: str, db: Session = Depends(get_db)):
     query_embedding = get_embedding(query)
@@ -132,7 +134,7 @@ def test_search_users(query: str, db: Session = Depends(get_db)):
     result = db.execute(text("""
         SELECT id, username, profile_description
         FROM users
-        ORDER BY embedding <-> :emb
+        ORDER BY embedding <-> CAST(:emb AS vector)
         LIMIT 5
     """), {"emb": query_embedding}).fetchall()
 
@@ -149,7 +151,7 @@ def test_search_posts(query: str, db: Session = Depends(get_db)):
     result = db.execute(text("""
         SELECT id, title, content
         FROM posts
-        ORDER BY embedding <-> :emb
+        ORDER BY embedding <-> CAST(:emb AS vector)
         LIMIT 5
     """), {"emb": query_embedding}).fetchall()
 
