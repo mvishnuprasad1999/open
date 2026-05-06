@@ -12,7 +12,8 @@ from src.db_core.embeddings import get_embedding,to_pgvector
 from sqlalchemy import text
 from src.rerank import rerank_results
 from src.rag_chat import chat_with_rag, retrieve_context
-from src.pydentic.chat_models import ChatRequest, ChatResponse
+# WRONG (file doesn't exist)
+from src.pydentic.model import ChatRequest, ChatResponse
 
 
 app = FastAPI()

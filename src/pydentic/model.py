@@ -69,3 +69,5 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     context_used: Optional[str] = None   # optional: show what DB data was pulled
+
+
