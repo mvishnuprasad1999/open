@@ -11,7 +11,7 @@ from src.db_core.auth import verify_password, create_access_token, get_current_u
 from src.cloudinary_utils import upload_image
 from src.db_core.embeddings import get_embedding,to_pgvector
 from sqlalchemy import text
-
+from src.rerank import rerank_results
 
 
 app = FastAPI()
