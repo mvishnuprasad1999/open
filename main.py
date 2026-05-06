@@ -8,7 +8,7 @@ from src.pydentic import model
 from src.db_core.db import get_db
 from src.db_core.auth import verify_password, create_access_token, get_current_user
 from src.cloudinary_utils import upload_image
-from src.db_core.embeddings import get_embedding
+from src.db_core.embeddings import get_embedding,to_pgvector
 
 app = FastAPI()
 
@@ -71,12 +71,20 @@ def create_profile(
         image_url = result["url"]
         public_id = result["public_id"]
 
-    return crud.update_full_profile(
+    # ✅ CREATE EMBEDDING
+    text_for_embedding = f"{name} {username} {profile_title or ''} {profile_description or ''}"
+    embedding = get_embedding(text_for_embedding)
+
+    user = crud.update_full_profile(
         db, user_id, name, username,
         profile_title, profile_description,
         image_url, public_id
     )
 
+    user.embedding = embedding
+    db.commit()
+
+    return user
 
 @app.get("/me", response_model=model.UserOut)
 def get_profile(db: Session = Depends(get_db), user_id: int = Depends(get_current_user)):
@@ -97,9 +105,15 @@ def create_post(
 
     post = crud.create_post(db, user_id, title, content)
 
+    # ✅ CREATE EMBEDDING
+    embedding = get_embedding(f"{title} {content}")
+    post.embedding = embedding
+
     for f in files:
         r = upload_image(file=f)
         crud.add_post_image(db, post.id, r["url"], r["public_id"])
+
+    db.commit()
 
     return post
 
@@ -130,13 +144,15 @@ from sqlalchemy import text
 @app.get("/test-search-users")
 def test_search_users(query: str, db: Session = Depends(get_db)):
     query_embedding = get_embedding(query)
+    emb_str = to_pgvector(query_embedding)
 
     result = db.execute(text("""
         SELECT id, username, profile_description
         FROM users
-        ORDER BY embedding <-> CAST(:emb AS vector)
+        WHERE embedding IS NOT NULL
+        ORDER BY embedding <-> :emb
         LIMIT 5
-    """), {"emb": query_embedding}).fetchall()
+    """), {"emb": emb_str}).fetchall()
 
     return [
         {"id": r[0], "username": r[1], "desc": r[2]}
@@ -147,13 +163,15 @@ def test_search_users(query: str, db: Session = Depends(get_db)):
 @app.get("/test-search-posts")
 def test_search_posts(query: str, db: Session = Depends(get_db)):
     query_embedding = get_embedding(query)
+    emb_str = to_pgvector(query_embedding)
 
     result = db.execute(text("""
         SELECT id, title, content
         FROM posts
-        ORDER BY embedding <-> CAST(:emb AS vector)
+        WHERE embedding IS NOT NULL
+        ORDER BY embedding <-> :emb
         LIMIT 5
-    """), {"emb": query_embedding}).fetchall()
+    """), {"emb": emb_str}).fetchall()
 
     return [
         {"id": r[0], "title": r[1], "content": r[2]}
