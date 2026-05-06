@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 
+
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
@@ -48,3 +49,23 @@ class PostOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+
+ 
+ 
+# ── existing models stay as-is ──
+ 
+# ── NEW: Chat models ──
+ 
+class ChatMessage(BaseModel):
+    role: str          # "user" or "assistant"
+    content: str
+ 
+class ChatRequest(BaseModel):
+    query: str
+    history: List[ChatMessage] = []   # full conversation so far
+ 
+class ChatResponse(BaseModel):
+    answer: str
+    context_used: Optional[str] = None   # optional: show what DB data was pulled

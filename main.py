@@ -11,6 +11,8 @@ from src.cloudinary_utils import upload_image
 from src.db_core.embeddings import get_embedding,to_pgvector
 from sqlalchemy import text
 from src.rerank import rerank_results
+from src.rag_chat import chat_with_rag, retrieve_context
+from src.pydentic.chat_models import ChatRequest, ChatResponse
 
 
 app = FastAPI()
@@ -242,3 +244,52 @@ def search_posts(query: str, db: Session = Depends(get_db)):
         ]
 
     return results
+
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(
+    request: ChatRequest,
+    db: Session = Depends(get_db),
+    # Remove the line below if you want unauthenticated chat:
+    # user_id: int = Depends(get_current_user)
+):
+    """
+    RAG-powered chat endpoint.
+    
+    Flow:
+    1. Vector search users + posts for relevant context
+    2. Inject context into LLM system prompt
+    3. LLM answers using context + general knowledge + chat history
+    
+    Body:
+    {
+        "query": "Who are the best React developers?",
+        "history": [
+            {"role": "user", "content": "previous question"},
+            {"role": "assistant", "content": "previous answer"}
+        ]
+    }
+    """
+    history = [{"role": m.role, "content": m.content} for m in request.history]
+    
+    answer = chat_with_rag(
+        query=request.query,
+        history=history,
+        db=db
+    )
+    
+    # Optionally return the context used (useful for debugging / "sources" UI)
+    context = retrieve_context(request.query, db)
+    
+    return ChatResponse(answer=answer, context_used=context)
+ 
+ 
+# ---------- CONTEXT PREVIEW (optional debug endpoint) ----------
+@app.get("/context-preview")
+def context_preview(query: str, db: Session = Depends(get_db)):
+    """
+    Preview what DB context would be injected for a given query.
+    Useful for debugging your RAG pipeline.
+    """
+    context = retrieve_context(query, db)
+    return {"query": query, "context": context}
