@@ -168,7 +168,7 @@ def search_users(query: str, db: Session = Depends(get_db)):
             "desc": r[2],
             "score": float(r[3])
         }
-        for r in rows if r[3] < 0.7
+        for r in rows if r[3] < 1.5
     ]
 
     # ✅ OPTIONAL LLM RERANK
@@ -198,5 +198,5 @@ def search_posts(query: str, db: Session = Depends(get_db)):
             "content": r[2],
             "score": float(r[3])
         }
-        for r in rows if r[3] < 0.7
+        for r in rows if r[3] < 1.5
     ]
