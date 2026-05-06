@@ -162,14 +162,15 @@ def search_users(query: str, db: Session = Depends(get_db)):
 
     # ✅ Step 1: NO FILTER (never return empty)
     results = [
-        {
-            "id": r[0],
-            "username": r[1],
-            "desc": r[2],
-            "score": float(r[3])
-        }
-        for r in rows
-    ]
+    {
+        "id": r[0],
+        "username": r[1],
+        "profile_title": r[2],
+        "desc": r[3],
+        "score": float(r[4])
+    }
+    for r in rows
+]
 
     # ✅ Step 2: fallback if no embeddings found
     if not results:
@@ -184,6 +185,7 @@ def search_users(query: str, db: Session = Depends(get_db)):
             {
                 "id": r[0],
                 "username": r[1],
+                "profile_title": r[2],
                 "desc": r[2],
                 "score": 999  # fallback score
             }
