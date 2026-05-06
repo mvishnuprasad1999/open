@@ -160,21 +160,43 @@ def search_users(query: str, db: Session = Depends(get_db)):
         LIMIT 10
     """), {"emb": emb_str}).fetchall()
 
-    # ✅ FILTER (important)
-    filtered = [
+    # ✅ Step 1: NO FILTER (never return empty)
+    results = [
         {
             "id": r[0],
             "username": r[1],
             "desc": r[2],
             "score": float(r[3])
         }
-        for r in rows if r[3] < 1.5
+        for r in rows
     ]
 
-    # ✅ OPTIONAL LLM RERANK
-    final = rerank_results(query, filtered)
+    # ✅ Step 2: fallback if no embeddings found
+    if not results:
+        fallback = db.execute(text("""
+            SELECT id, username, profile_description
+            FROM users
+            WHERE username ILIKE :q OR profile_description ILIKE :q
+            LIMIT 10
+        """), {"q": f"%{query}%"}).fetchall()
 
-    return final
+        return [
+            {
+                "id": r[0],
+                "username": r[1],
+                "desc": r[2],
+                "score": 999  # fallback score
+            }
+            for r in fallback
+        ]
+
+    # ✅ Step 3: safe rerank (don’t break API)
+    try:
+        final = rerank_results(query, results)
+        return final if final else results
+    except Exception as e:
+        print("RERANK ERROR:", e)
+        return results
 
 
 @app.get("/search-posts")
@@ -191,12 +213,33 @@ def search_posts(query: str, db: Session = Depends(get_db)):
         LIMIT 10
     """), {"emb": emb_str}).fetchall()
 
-    return [
+    results = [
         {
             "id": r[0],
             "title": r[1],
             "content": r[2],
             "score": float(r[3])
         }
-        for r in rows if r[3] < 1.5
+        for r in rows
     ]
+
+    # fallback if empty
+    if not results:
+        fallback = db.execute(text("""
+            SELECT id, title, content
+            FROM posts
+            WHERE title ILIKE :q OR content ILIKE :q
+            LIMIT 10
+        """), {"q": f"%{query}%"}).fetchall()
+
+        return [
+            {
+                "id": r[0],
+                "title": r[1],
+                "content": r[2],
+                "score": 999
+            }
+            for r in fallback
+        ]
+
+    return results
