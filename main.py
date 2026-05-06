@@ -3,12 +3,16 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List
 
+from rerank import rerank_results
 from src.db_core import crud, dbmodel
 from src.pydentic import model
 from src.db_core.db import get_db
 from src.db_core.auth import verify_password, create_access_token, get_current_user
 from src.cloudinary_utils import upload_image
 from src.db_core.embeddings import get_embedding,to_pgvector
+from sqlalchemy import text
+
+
 
 app = FastAPI()
 
@@ -67,13 +71,19 @@ def create_profile(
     image_url, public_id = None, None
 
     if file:
-        result = upload_image(file=file)
-        image_url = result["url"]
-        public_id = result["public_id"]
+        r = upload_image(file=file)
+        image_url = r["url"]
+        public_id = r["public_id"]
 
-    # ✅ CREATE EMBEDDING
-    text_for_embedding = f"{name} {username} {profile_title or ''} {profile_description or ''}"
-    embedding = get_embedding(text_for_embedding)
+    # 🔥 BETTER EMBEDDING TEXT
+    text_data = f"""
+    Name: {name}
+    Username: {username}
+    Title: {profile_title}
+    Skills: {profile_description}
+    """
+
+    embedding = get_embedding(text_data)
 
     user = crud.update_full_profile(
         db, user_id, name, username,
@@ -100,12 +110,8 @@ def create_post(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user)
 ):
-    if len(files) > 5:
-        raise HTTPException(400, "Max 5 images")
-
     post = crud.create_post(db, user_id, title, content)
 
-    # ✅ CREATE EMBEDDING
     embedding = get_embedding(f"{title} {content}")
     post.embedding = embedding
 
@@ -114,9 +120,7 @@ def create_post(
         crud.add_post_image(db, post.id, r["url"], r["public_id"])
 
     db.commit()
-
     return post
-
 
 @app.get("/posts", response_model=List[model.PostOut])
 def posts(db: Session = Depends(get_db)):
@@ -139,41 +143,61 @@ def follow(user_id: int, db: Session = Depends(get_db), current: int = Depends(g
 
 
 # ---------- RAG SEARCH ----------
-from sqlalchemy import text
 
-@app.get("/test-search-users")
-def test_search_users(query: str, db: Session = Depends(get_db)):
+
+
+
+@app.get("/search-users")
+def search_users(query: str, db: Session = Depends(get_db)):
     query_embedding = get_embedding(query)
     emb_str = to_pgvector(query_embedding)
 
-    result = db.execute(text("""
-        SELECT id, username, profile_description
+    rows = db.execute(text("""
+        SELECT id, username, profile_description,
+               embedding <-> :emb AS distance
         FROM users
         WHERE embedding IS NOT NULL
         ORDER BY embedding <-> :emb
-        LIMIT 5
+        LIMIT 10
     """), {"emb": emb_str}).fetchall()
 
-    return [
-        {"id": r[0], "username": r[1], "desc": r[2]}
-        for r in result
+    # ✅ FILTER (important)
+    filtered = [
+        {
+            "id": r[0],
+            "username": r[1],
+            "desc": r[2],
+            "score": float(r[3])
+        }
+        for r in rows if r[3] < 0.7
     ]
 
+    # ✅ OPTIONAL LLM RERANK
+    final = rerank_results(query, filtered)
 
-@app.get("/test-search-posts")
-def test_search_posts(query: str, db: Session = Depends(get_db)):
+    return final
+
+
+@app.get("/search-posts")
+def search_posts(query: str, db: Session = Depends(get_db)):
     query_embedding = get_embedding(query)
     emb_str = to_pgvector(query_embedding)
 
-    result = db.execute(text("""
-        SELECT id, title, content
+    rows = db.execute(text("""
+        SELECT id, title, content,
+               embedding <-> :emb AS distance
         FROM posts
         WHERE embedding IS NOT NULL
         ORDER BY embedding <-> :emb
-        LIMIT 5
+        LIMIT 10
     """), {"emb": emb_str}).fetchall()
 
     return [
-        {"id": r[0], "title": r[1], "content": r[2]}
-        for r in result
+        {
+            "id": r[0],
+            "title": r[1],
+            "content": r[2],
+            "score": float(r[3])
+        }
+        for r in rows if r[3] < 0.7
     ]
