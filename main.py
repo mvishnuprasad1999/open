@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List
 
-from rerank import rerank_results
 from src.db_core import crud, dbmodel
 from src.pydentic import model
 from src.db_core.db import get_db
