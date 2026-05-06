@@ -152,7 +152,7 @@ def search_users(query: str, db: Session = Depends(get_db)):
     emb_str = to_pgvector(query_embedding)
 
     rows = db.execute(text("""
-        SELECT id, username, profile_description,
+        SELECT id, username, profile_title, profile_description,
                embedding <-> :emb AS distance
         FROM users
         WHERE embedding IS NOT NULL
@@ -160,22 +160,20 @@ def search_users(query: str, db: Session = Depends(get_db)):
         LIMIT 10
     """), {"emb": emb_str}).fetchall()
 
-    # ✅ Step 1: NO FILTER (never return empty)
     results = [
-    {
-        "id": r[0],
-        "username": r[1],
-        "profile_title": r[2],
-        "desc": r[3],
-        "score": float(r[4])
-    }
-    for r in rows
-]
+        {
+            "id": r[0],
+            "username": r[1],
+            "profile_title": r[2],
+            "desc": r[3],
+            "score": float(r[4])
+        }
+        for r in rows
+    ]
 
-    # ✅ Step 2: fallback if no embeddings found
     if not results:
         fallback = db.execute(text("""
-            SELECT id, username, profile_description
+            SELECT id, username, profile_title, profile_description
             FROM users
             WHERE username ILIKE :q OR profile_description ILIKE :q
             LIMIT 10
@@ -186,13 +184,12 @@ def search_users(query: str, db: Session = Depends(get_db)):
                 "id": r[0],
                 "username": r[1],
                 "profile_title": r[2],
-                "desc": r[2],
-                "score": 999  # fallback score
+                "desc": r[3],
+                "score": 999
             }
             for r in fallback
         ]
 
-    # ✅ Step 3: safe rerank (don’t break API)
     try:
         final = rerank_results(query, results)
         return final if final else results
