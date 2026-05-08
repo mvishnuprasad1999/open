@@ -299,7 +299,64 @@ def save(
         user_id,
         post_id
     )
+# =========================
+# GET SAVED POSTS
+# =========================
 
+
+@app.get("/saved-posts", response_model=List[model.PostOut])
+def get_saved_posts(
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+):
+
+    saved_posts = (
+        db.query(dbmodel.Post)
+        .join(
+            dbmodel.Save,
+            dbmodel.Save.post_id == dbmodel.Post.id
+        )
+        .filter(
+            dbmodel.Save.user_id == user_id
+        )
+        .order_by(dbmodel.Save.id.desc())
+        .all()
+    )
+
+    return saved_posts
+
+
+# =========================
+# UNSAVE POST
+# =========================
+
+@app.delete("/save/{post_id}")
+def unsave(
+
+    post_id: int,
+
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+
+):
+
+    save = db.query(
+        dbmodel.Save
+    ).filter(
+        dbmodel.Save.user_id == user_id,
+        dbmodel.Save.post_id == post_id
+    ).first()
+
+    if not save:
+        raise HTTPException(
+            status_code=404,
+            detail="Save not found"
+        )
+
+    db.delete(save)
+    db.commit()
+
+    return {"msg": "unsaved"}
 
 # =========================
 # FOLLOW USER
@@ -355,37 +412,6 @@ def unlike(
     return {"msg": "unliked"}
 
 
-# =========================
-# UNSAVE POST
-# =========================
-
-@app.delete("/save/{post_id}")
-def unsave(
-
-    post_id: int,
-
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user)
-
-):
-
-    save = db.query(
-        dbmodel.Save
-    ).filter(
-        dbmodel.Save.user_id == user_id,
-        dbmodel.Save.post_id == post_id
-    ).first()
-
-    if not save:
-        raise HTTPException(
-            status_code=404,
-            detail="Save not found"
-        )
-
-    db.delete(save)
-    db.commit()
-
-    return {"msg": "unsaved"}
 
 
 # =========================
