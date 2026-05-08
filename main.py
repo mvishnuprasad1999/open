@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session,joinedload
 from sqlalchemy import text
 from typing import List
 
@@ -212,26 +212,16 @@ def get_users(
 
 @app.post("/create-post", response_model=model.PostOut)
 def create_post(
-
     title: str = Form(...),
     content: str = Form(...),
-
     files: List[UploadFile] = File(...),
-
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user)
-
 ):
 
-    post = crud.create_post(
-        db,
-        user_id,
-        title,
-        content
-    )
+    post = crud.create_post(db, user_id, title, content)
 
     for f in files:
-
         uploaded = upload_image(file=f)
 
         crud.add_post_image(
@@ -242,116 +232,96 @@ def create_post(
         )
 
     db.commit()
-    db.refresh(post)
+
+    # 🔥 IMPORTANT: reload with images
+    post = (
+        db.query(dbmodel.Post)
+        .options(joinedload(dbmodel.Post.images))
+        .filter(dbmodel.Post.id == post.id)
+        .first()
+    )
 
     return post
 
 
 # =========================
-# GET POSTS
+# GET POSTS (WITH IMAGES)
 # =========================
-
 @app.get("/posts", response_model=List[model.PostOut])
-def posts(
-    db: Session = Depends(get_db)
-):
+def posts(db: Session = Depends(get_db)):
 
-    return crud.get_posts(db)
+    return (
+        db.query(dbmodel.Post)
+        .options(joinedload(dbmodel.Post.images))
+        .order_by(dbmodel.Post.id.desc())
+        .all()
+    )
 
 
 # =========================
 # LIKE POST
 # =========================
-
 @app.post("/like/{post_id}")
 def like(
-
     post_id: int,
-
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user)
-
 ):
-
-    return crud.like_post(
-        db,
-        user_id,
-        post_id
-    )
+    return crud.like_post(db, user_id, post_id)
 
 
 # =========================
 # SAVE POST
 # =========================
-
 @app.post("/save/{post_id}")
 def save(
-
     post_id: int,
-
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user)
-
 ):
+    return crud.save_post(db, user_id, post_id)
 
-    return crud.save_post(
-        db,
-        user_id,
-        post_id
-    )
+
 # =========================
-# GET SAVED POSTS
+# GET SAVED POSTS (FIXED)
 # =========================
-
-
 @app.get("/saved-posts", response_model=List[model.PostOut])
 def get_saved_posts(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user)
 ):
 
-    saved_posts = (
+    return (
         db.query(dbmodel.Post)
-        .join(
-            dbmodel.Save,
-            dbmodel.Save.post_id == dbmodel.Post.id
-        )
-        .filter(
-            dbmodel.Save.user_id == user_id
-        )
+        .options(joinedload(dbmodel.Post.images))  # 🔥 FIX
+        .join(dbmodel.Save, dbmodel.Save.post_id == dbmodel.Post.id)
+        .filter(dbmodel.Save.user_id == user_id)
         .order_by(dbmodel.Save.id.desc())
         .all()
     )
-
-    return saved_posts
 
 
 # =========================
 # UNSAVE POST
 # =========================
-
 @app.delete("/save/{post_id}")
 def unsave(
-
     post_id: int,
-
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user)
-
 ):
 
-    save = db.query(
-        dbmodel.Save
-    ).filter(
-        dbmodel.Save.user_id == user_id,
-        dbmodel.Save.post_id == post_id
-    ).first()
+    save = (
+        db.query(dbmodel.Save)
+        .filter(
+            dbmodel.Save.user_id == user_id,
+            dbmodel.Save.post_id == post_id
+        )
+        .first()
+    )
 
     if not save:
-        raise HTTPException(
-            status_code=404,
-            detail="Save not found"
-        )
+        raise HTTPException(status_code=404, detail="Save not found")
 
     db.delete(save)
     db.commit()
