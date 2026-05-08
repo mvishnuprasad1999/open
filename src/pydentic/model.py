@@ -2,6 +2,10 @@ from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 
 
+# =========================
+# AUTH
+# =========================
+
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
@@ -12,25 +16,39 @@ class UserLogin(BaseModel):
     password: str
 
 
-class UserOut(BaseModel):
-    id: int
-    email: EmailStr
-    name:Optional[str]
-    username: Optional[str]
-    profile_title: Optional[str]
-    profile_image: Optional[str]
-    profile_description: Optional[str]
-    is_profile_complete: bool
-
-    class Config:
-        from_attributes = True
-
-
 class Token(BaseModel):
     access_token: str
     token_type: str
     is_profile_complete: bool
 
+
+# =========================
+# USER
+# =========================
+
+class UserOut(BaseModel):
+    id: int
+    email: EmailStr
+
+    name: Optional[str]
+    username: Optional[str]
+
+    profile_title: Optional[str]
+    profile_image: Optional[str]
+    profile_description: Optional[str]
+
+    is_profile_complete: bool
+
+    followers_count: Optional[int] = 0
+    following_count: Optional[int] = 0
+
+    class Config:
+        from_attributes = True
+
+
+# =========================
+# POST IMAGE
+# =========================
 
 class PostImageOut(BaseModel):
     image_url: str
@@ -39,19 +57,80 @@ class PostImageOut(BaseModel):
         from_attributes = True
 
 
+# =========================
+# POST
+# =========================
+
 class PostOut(BaseModel):
     id: int
+
     title: str
     content: str
-    images: List[PostImageOut]
-    user: UserOut 
+
     user_id: int
+    user: UserOut
+
+    images: List[PostImageOut]
+
+    likes_count: Optional[int] = 0
+    saves_count: Optional[int] = 0
 
     class Config:
         from_attributes = True
 
 
+# =========================
+# FOLLOW
+# =========================
 
+class FollowCreate(BaseModel):
+    following_id: int
+
+
+class FollowOut(BaseModel):
+    id: int
+
+    follower_id: int
+    following_id: int
+
+    class Config:
+        from_attributes = True
+
+
+# =========================
+# LIKE
+# =========================
+
+class LikeCreate(BaseModel):
+    post_id: int
+
+
+class LikeOut(BaseModel):
+    id: int
+
+    user_id: int
+    post_id: int
+
+    class Config:
+        from_attributes = True
+
+
+# =========================
+# SAVE
+# =========================
+
+class SaveCreate(BaseModel):
+    post_id: int
+
+
+class SaveOut(BaseModel):
+    id: int
+
+    user_id: int
+    post_id: int
+
+    class Config:
+        from_attributes = True
  
  
 # ── existing models stay as-is ──

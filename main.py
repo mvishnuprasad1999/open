@@ -19,20 +19,39 @@ app = FastAPI()
 
 
 # ---------- ROOT ----------
+
 @app.get("/")
 def welcome():
     return {"message": "welcome to open"}
 
 
-# ---------- SIGNUP ----------
+# =========================
+# SIGNUP
+# =========================
+
 @app.post("/signup", response_model=model.Token)
-def signup(user: model.UserCreate, db: Session = Depends(get_db)):
-    if crud.get_user_by_email(db, user.email):
-        raise HTTPException(400, "Email already exists")
+def signup(
+    user: model.UserCreate,
+    db: Session = Depends(get_db)
+):
 
-    new_user = crud.create_user(db, user.email, user.password)
+    existing = crud.get_user_by_email(db, user.email)
 
-    token = create_access_token({"sub": new_user.id})
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="Email already exists"
+        )
+
+    new_user = crud.create_user(
+        db,
+        user.email,
+        user.password
+    )
+
+    token = create_access_token({
+        "sub": new_user.id
+    })
 
     return {
         "access_token": token,
@@ -41,15 +60,39 @@ def signup(user: model.UserCreate, db: Session = Depends(get_db)):
     }
 
 
-# ---------- LOGIN ----------
+# =========================
+# LOGIN
+# =========================
+
 @app.post("/login", response_model=model.Token)
-def login(user: model.UserLogin, db: Session = Depends(get_db)):
-    db_user = crud.get_user_by_email(db, user.email)
+def login(
+    user: model.UserLogin,
+    db: Session = Depends(get_db)
+):
 
-    if not db_user or not verify_password(user.password, db_user.hashed_password):
-        raise HTTPException(401, "Invalid credentials")
+    db_user = crud.get_user_by_email(
+        db,
+        user.email
+    )
 
-    token = create_access_token({"sub": db_user.id})
+    if not db_user:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid credentials"
+        )
+
+    if not verify_password(
+        user.password,
+        db_user.hashed_password
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid credentials"
+        )
+
+    token = create_access_token({
+        "sub": db_user.id
+    })
 
     return {
         "access_token": token,
@@ -58,89 +101,324 @@ def login(user: model.UserLogin, db: Session = Depends(get_db)):
     }
 
 
-# ---------- PROFILE ----------
+# =========================
+# CREATE PROFILE
+# =========================
+
 @app.post("/create-profile", response_model=model.UserOut)
 def create_profile(
+
     name: str = Form(...),
     username: str = Form(...),
+
     profile_title: str = Form(None),
     profile_description: str = Form(None),
+
     file: UploadFile = File(None),
+
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user)
+
 ):
-    image_url, public_id = None, None
+
+    image_url = None
+    public_id = None
 
     if file:
-        r = upload_image(file=file)
-        image_url = r["url"]
-        public_id = r["public_id"]
 
-    # 🔥 BETTER EMBEDDING TEXT
-    text_data = f"""
-    Name: {name}
-    Username: {username}
-    Title: {profile_title}
-    Skills: {profile_description}
-    """
+        uploaded = upload_image(file=file)
 
-    embedding = get_embedding(text_data)
+        image_url = uploaded["url"]
+        public_id = uploaded["public_id"]
 
     user = crud.update_full_profile(
-        db, user_id, name, username,
-        profile_title, profile_description,
-        image_url, public_id
+        db,
+        user_id,
+        name,
+        username,
+        profile_title,
+        profile_description,
+        image_url,
+        public_id
     )
-
-    user.embedding = embedding
-    db.commit()
 
     return user
 
+
+# =========================
+# GET CURRENT USER
+# =========================
+
 @app.get("/me", response_model=model.UserOut)
-def get_profile(db: Session = Depends(get_db), user_id: int = Depends(get_current_user)):
-    return crud.get_user_by_id(db, user_id)
-
-
-# ---------- POSTS ----------
-@app.post("/create-post", response_model=model.PostOut)
-def create_post(
-    title: str = Form(...),
-    content: str = Form(...),
-    files: List[UploadFile] = File(...),
+def get_profile(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user)
 ):
-    post = crud.create_post(db, user_id, title, content)
 
-    embedding = get_embedding(f"{title} {content}")
-    post.embedding = embedding
+    user = crud.get_user_by_id(db, user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    user.followers_count = db.query(
+        dbmodel.Follow
+    ).filter(
+        dbmodel.Follow.following_id == user.id
+    ).count()
+
+    user.following_count = db.query(
+        dbmodel.Follow
+    ).filter(
+        dbmodel.Follow.follower_id == user.id
+    ).count()
+
+    return user
+
+
+# =========================
+# GET ALL USERS
+# =========================
+
+@app.get("/users", response_model=List[model.UserOut])
+def get_users(
+    db: Session = Depends(get_db)
+):
+
+    users = db.query(dbmodel.User).all()
+
+    for user in users:
+
+        user.followers_count = db.query(
+            dbmodel.Follow
+        ).filter(
+            dbmodel.Follow.following_id == user.id
+        ).count()
+
+        user.following_count = db.query(
+            dbmodel.Follow
+        ).filter(
+            dbmodel.Follow.follower_id == user.id
+        ).count()
+
+    return users
+
+
+# =========================
+# CREATE POST
+# =========================
+
+@app.post("/create-post", response_model=model.PostOut)
+def create_post(
+
+    title: str = Form(...),
+    content: str = Form(...),
+
+    files: List[UploadFile] = File(...),
+
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+
+):
+
+    post = crud.create_post(
+        db,
+        user_id,
+        title,
+        content
+    )
 
     for f in files:
-        r = upload_image(file=f)
-        crud.add_post_image(db, post.id, r["url"], r["public_id"])
+
+        uploaded = upload_image(file=f)
+
+        crud.add_post_image(
+            db,
+            post.id,
+            uploaded["url"],
+            uploaded["public_id"]
+        )
 
     db.commit()
+    db.refresh(post)
+
     return post
 
+
+# =========================
+# GET POSTS
+# =========================
+
 @app.get("/posts", response_model=List[model.PostOut])
-def posts(db: Session = Depends(get_db)):
+def posts(
+    db: Session = Depends(get_db)
+):
+
     return crud.get_posts(db)
 
 
-@app.post("/like/{post_id}")
-def like(post_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user)):
-    return crud.like_post(db, user_id, post_id)
+# =========================
+# LIKE POST
+# =========================
 
+@app.post("/like/{post_id}")
+def like(
+
+    post_id: int,
+
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+
+):
+
+    return crud.like_post(
+        db,
+        user_id,
+        post_id
+    )
+
+
+# =========================
+# SAVE POST
+# =========================
 
 @app.post("/save/{post_id}")
-def save(post_id: int, db: Session = Depends(get_db), user_id: int = Depends(get_current_user)):
-    return crud.save_post(db, user_id, post_id)
+def save(
 
+    post_id: int,
+
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+
+):
+
+    return crud.save_post(
+        db,
+        user_id,
+        post_id
+    )
+
+
+# =========================
+# FOLLOW USER
+# =========================
 
 @app.post("/follow/{user_id}")
-def follow(user_id: int, db: Session = Depends(get_db), current: int = Depends(get_current_user)):
-    return crud.follow(db, current, user_id)
+def follow(
+
+    user_id: int,
+
+    db: Session = Depends(get_db),
+    current_user: int = Depends(get_current_user)
+
+):
+
+    return crud.follow(
+        db,
+        current_user,
+        user_id
+    )
+
+
+# =========================
+# UNLIKE POST
+# =========================
+
+@app.delete("/like/{post_id}")
+def unlike(
+
+    post_id: int,
+
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+
+):
+
+    like = db.query(
+        dbmodel.Like
+    ).filter(
+        dbmodel.Like.user_id == user_id,
+        dbmodel.Like.post_id == post_id
+    ).first()
+
+    if not like:
+        raise HTTPException(
+            status_code=404,
+            detail="Like not found"
+        )
+
+    db.delete(like)
+    db.commit()
+
+    return {"msg": "unliked"}
+
+
+# =========================
+# UNSAVE POST
+# =========================
+
+@app.delete("/save/{post_id}")
+def unsave(
+
+    post_id: int,
+
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+
+):
+
+    save = db.query(
+        dbmodel.Save
+    ).filter(
+        dbmodel.Save.user_id == user_id,
+        dbmodel.Save.post_id == post_id
+    ).first()
+
+    if not save:
+        raise HTTPException(
+            status_code=404,
+            detail="Save not found"
+        )
+
+    db.delete(save)
+    db.commit()
+
+    return {"msg": "unsaved"}
+
+
+# =========================
+# UNFOLLOW USER
+# =========================
+
+@app.delete("/follow/{user_id}")
+def unfollow(
+
+    user_id: int,
+
+    db: Session = Depends(get_db),
+    current_user: int = Depends(get_current_user)
+
+):
+
+    follow = db.query(
+        dbmodel.Follow
+    ).filter(
+        dbmodel.Follow.follower_id == current_user,
+        dbmodel.Follow.following_id == user_id
+    ).first()
+
+    if not follow:
+        raise HTTPException(
+            status_code=404,
+            detail="Follow not found"
+        )
+
+    db.delete(follow)
+    db.commit()
+
+    return {"msg": "unfollowed"}
 
 
 # ---------- RAG SEARCH ----------
