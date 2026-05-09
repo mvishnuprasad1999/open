@@ -256,7 +256,64 @@ def posts(db: Session = Depends(get_db)):
         .order_by(dbmodel.Post.id.desc())
         .all()
     )
+# =========================
+# logged user POST
+# =========================
 
+@app.get("/my-posts", response_model=List[model.PostOut])
+def my_posts(
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+):
+
+    return (
+        db.query(dbmodel.Post)
+        .options(joinedload(dbmodel.Post.images))
+        .filter(dbmodel.Post.user_id == user_id)
+        .order_by(dbmodel.Post.id.desc())
+        .all()
+    )
+
+# =========================
+# DELETE POST
+# =========================
+@app.delete("/post/{post_id}")
+def delete_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+):
+
+    # 1. Get post
+    post = (
+        db.query(dbmodel.Post)
+        .filter(dbmodel.Post.id == post_id)
+        .first()
+    )
+
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    # 2. Check ownership
+    if post.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not allowed to delete this post")
+
+    # 3. Delete images (DB + optional Cloudinary)
+    for img in post.images:
+        try:
+            # optional: delete from cloudinary
+            # cloudinary.uploader.destroy(img.public_id)
+            pass
+        except Exception:
+            pass
+
+        db.delete(img)
+
+    # 4. Delete post
+    db.delete(post)
+    db.commit()
+
+    return {"message": "Post deleted successfully"}
 
 # =========================
 # LIKE POST
