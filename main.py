@@ -207,6 +207,39 @@ def get_users(
 
 
 # =========================
+# GET USER BY ID
+# =========================
+
+@app.get("/user/{user_id}", response_model=model.UserOut)
+def get_user_profile(
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+
+    user = crud.get_user_by_id(db, user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    user.followers_count = db.query(
+        dbmodel.Follow
+    ).filter(
+        dbmodel.Follow.following_id == user.id
+    ).count()
+
+    user.following_count = db.query(
+        dbmodel.Follow
+    ).filter(
+        dbmodel.Follow.follower_id == user.id
+    ).count()
+
+    return user
+
+
+# =========================
 # CREATE POST
 # =========================
 
