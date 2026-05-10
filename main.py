@@ -1,12 +1,12 @@
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session,joinedload
 from sqlalchemy import text
-from typing import List
+from typing import List, Optional
 
 from src.db_core import crud, dbmodel
 from src.pydentic import model
 from src.db_core.db import get_db
-from src.db_core.auth import verify_password, create_access_token, get_current_user
+from src.db_core.auth import get_current_user_optional, verify_password, create_access_token, get_current_user
 from src.cloudinary_utils import upload_image
 from src.db_core.embeddings import get_embedding,to_pgvector
 from sqlalchemy import text
@@ -248,14 +248,62 @@ def create_post(
 # GET POSTS (WITH IMAGES)
 # =========================
 @app.get("/posts", response_model=List[model.PostOut])
-def posts(db: Session = Depends(get_db)):
-
-    return (
+def posts(
+    db: Session = Depends(get_db),
+    user_id: Optional[int] = Depends(get_current_user_optional),
+):
+    posts_data = (
         db.query(dbmodel.Post)
-        .options(joinedload(dbmodel.Post.images))
+        .options(
+            joinedload(dbmodel.Post.images),
+            joinedload(dbmodel.Post.user),
+        )
         .order_by(dbmodel.Post.id.desc())
         .all()
     )
+
+    result = []
+
+    for post in posts_data:
+        likes_count = (
+            db.query(dbmodel.Like)
+            .filter(dbmodel.Like.post_id == post.id)
+            .count()
+        )
+
+        saves_count = (
+            db.query(dbmodel.Save)
+            .filter(dbmodel.Save.post_id == post.id)
+            .count()
+        )
+
+        is_liked = False
+
+        if user_id is not None:
+            is_liked = (
+                db.query(dbmodel.Like)
+                .filter(
+                    dbmodel.Like.post_id == post.id,
+                    dbmodel.Like.user_id == user_id,
+                )
+                .first()
+                is not None
+            )
+
+        result.append({
+            "id": post.id,
+            "title": post.title,
+            "content": post.content,
+            "user_id": post.user_id,
+            "user": post.user,
+            "images": post.images,
+            "likes_count": likes_count,
+            "saves_count": saves_count,
+            "is_liked": is_liked,
+        })
+
+    return result
+
 # =========================
 # logged user POST
 # =========================
@@ -322,9 +370,36 @@ def delete_post(
 def like(
     post_id: int,
     db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user)
+    user_id: int = Depends(get_current_user),
 ):
-    return crud.like_post(db, user_id, post_id)
+    existing_like = (
+        db.query(dbmodel.Like)
+        .filter(
+            dbmodel.Like.post_id == post_id,
+            dbmodel.Like.user_id == user_id,
+        )
+        .first()
+    )
+
+    if existing_like is None:
+        new_like = dbmodel.Like(
+            post_id=post_id,
+            user_id=user_id,
+        )
+        db.add(new_like)
+        db.commit()
+
+    likes_count = (
+        db.query(dbmodel.Like)
+        .filter(dbmodel.Like.post_id == post_id)
+        .count()
+    )
+
+    return {
+        "msg": "liked",
+        "likes_count": likes_count,
+        "is_liked": True,
+    }
 
 
 # =========================

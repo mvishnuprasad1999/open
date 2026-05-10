@@ -74,9 +74,11 @@ class PostOut(BaseModel):
 
     likes_count: Optional[int] = 0
     saves_count: Optional[int] = 0
+    is_liked: Optional[bool] = False
 
     class Config:
         from_attributes = True
+
 
 
 # =========================
