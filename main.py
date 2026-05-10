@@ -356,6 +356,55 @@ def my_posts(
     )
 
 # =========================
+# GET POSTS BY USER ID
+# =========================
+
+@app.get("/user-posts/{user_id}", response_model=List[model.PostOut])
+def get_user_posts(
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    posts_data = (
+        db.query(dbmodel.Post)
+        .options(
+            joinedload(dbmodel.Post.images),
+            joinedload(dbmodel.Post.user),
+        )
+        .filter(dbmodel.Post.user_id == user_id)
+        .order_by(dbmodel.Post.id.desc())
+        .all()
+    )
+
+    result = []
+
+    for post in posts_data:
+        likes_count = (
+            db.query(dbmodel.Like)
+            .filter(dbmodel.Like.post_id == post.id)
+            .count()
+        )
+
+        saves_count = (
+            db.query(dbmodel.Save)
+            .filter(dbmodel.Save.post_id == post.id)
+            .count()
+        )
+
+        result.append({
+            "id": post.id,
+            "title": post.title,
+            "content": post.content,
+            "user_id": post.user_id,
+            "user": post.user,
+            "images": post.images,
+            "likes_count": likes_count,
+            "saves_count": saves_count,
+            "is_liked": False,
+        })
+
+    return result
+
+# =========================
 # DELETE POST
 # =========================
 @app.delete("/post/{post_id}")
