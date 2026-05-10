@@ -487,31 +487,31 @@ def follow(
 
 @app.delete("/like/{post_id}")
 def unlike(
-
     post_id: int,
-
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user)
-
 ):
-
-    like = db.query(
-        dbmodel.Like
-    ).filter(
+    like = db.query(dbmodel.Like).filter(
         dbmodel.Like.user_id == user_id,
         dbmodel.Like.post_id == post_id
     ).first()
 
-    if not like:
-        raise HTTPException(
-            status_code=404,
-            detail="Like not found"
-        )
+    if like:
+        db.delete(like)
+        db.commit()
 
-    db.delete(like)
-    db.commit()
+    likes_count = (
+        db.query(dbmodel.Like)
+        .filter(dbmodel.Like.post_id == post_id)
+        .count()
+    )
 
-    return {"msg": "unliked"}
+    return {
+        "msg": "unliked",
+        "likes_count": likes_count,
+        "is_liked": False,
+    }
+
 
 
 
