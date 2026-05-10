@@ -422,15 +422,48 @@ def get_saved_posts(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user)
 ):
-
-    return (
+    posts_data = (
         db.query(dbmodel.Post)
-        .options(joinedload(dbmodel.Post.images))  # 🔥 FIX
+        .options(
+            joinedload(dbmodel.Post.images),
+            joinedload(dbmodel.Post.user),
+        )
         .join(dbmodel.Save, dbmodel.Save.post_id == dbmodel.Post.id)
         .filter(dbmodel.Save.user_id == user_id)
         .order_by(dbmodel.Save.id.desc())
         .all()
     )
+
+    result = []
+
+    for post in posts_data:
+        likes_count = db.query(dbmodel.Like).filter(
+            dbmodel.Like.post_id == post.id
+        ).count()
+
+        saves_count = db.query(dbmodel.Save).filter(
+            dbmodel.Save.post_id == post.id
+        ).count()
+
+        is_liked = db.query(dbmodel.Like).filter(
+            dbmodel.Like.post_id == post.id,
+            dbmodel.Like.user_id == user_id,
+        ).first() is not None
+
+        result.append({
+            "id": post.id,
+            "title": post.title,
+            "content": post.content,
+            "user_id": post.user_id,
+            "user": post.user,
+            "images": post.images,
+            "likes_count": likes_count,
+            "saves_count": saves_count,
+            "is_liked": is_liked,
+        })
+
+    return result
+
 
 
 # =========================
