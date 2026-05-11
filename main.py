@@ -217,21 +217,26 @@ def get_user_profile(
     current_user: Optional[int] = Depends(get_current_user_optional)
 ):
 
+    # 1. Get user
     user = crud.get_user_by_id(db, user_id)
 
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
 
-    # followers / following
+    # 2. Followers count
     followers_count = db.query(dbmodel.Follow).filter(
         dbmodel.Follow.following_id == user.id
     ).count()
 
+    # 3. Following count
     following_count = db.query(dbmodel.Follow).filter(
         dbmodel.Follow.follower_id == user.id
     ).count()
 
-    # ✅ GET USER POSTS WITH IMAGES
+    # 4. Get user posts with images
     posts = (
         db.query(dbmodel.Post)
         .options(joinedload(dbmodel.Post.images))
@@ -240,7 +245,7 @@ def get_user_profile(
         .all()
     )
 
-    result_posts = []
+    post_list = []
 
     for post in posts:
 
@@ -260,7 +265,7 @@ def get_user_profile(
                 dbmodel.Like.user_id == current_user
             ).first() is not None
 
-        result_posts.append({
+        post_list.append({
             "id": post.id,
             "title": post.title,
             "content": post.content,
@@ -271,6 +276,7 @@ def get_user_profile(
             "is_liked": is_liked,
         })
 
+    # 5. FINAL RESPONSE (FIXED IMAGE FIELD HERE)
     return {
         "id": user.id,
         "email": user.email,
@@ -278,10 +284,14 @@ def get_user_profile(
         "name": user.name,
         "profile_title": user.profile_title,
         "profile_description": user.profile_description,
-        "image_url": user.image_url,
+
+        # ✅ FIXED HERE (NO image_url column in DB)
+        "image_url": user.profile_image,
+
         "followers_count": followers_count,
         "following_count": following_count,
-        "posts": result_posts
+
+        "posts": post_list
     }
 
 
