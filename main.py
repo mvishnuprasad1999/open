@@ -210,33 +210,79 @@ def get_users(
 # GET USER BY ID
 # =========================
 
-@app.get("/user/{user_id}", response_model=model.UserOut)
+@app.get("/user/{user_id}")
 def get_user_profile(
     user_id: int,
     db: Session = Depends(get_db),
+    current_user: Optional[int] = Depends(get_current_user_optional)
 ):
 
     user = crud.get_user_by_id(db, user_id)
 
     if not user:
-        raise HTTPException(
-            status_code=404,
-            detail="User not found"
-        )
+        raise HTTPException(status_code=404, detail="User not found")
 
-    user.followers_count = db.query(
-        dbmodel.Follow
-    ).filter(
+    # followers / following
+    followers_count = db.query(dbmodel.Follow).filter(
         dbmodel.Follow.following_id == user.id
     ).count()
 
-    user.following_count = db.query(
-        dbmodel.Follow
-    ).filter(
+    following_count = db.query(dbmodel.Follow).filter(
         dbmodel.Follow.follower_id == user.id
     ).count()
 
-    return user
+    # ✅ GET USER POSTS WITH IMAGES
+    posts = (
+        db.query(dbmodel.Post)
+        .options(joinedload(dbmodel.Post.images))
+        .filter(dbmodel.Post.user_id == user_id)
+        .order_by(dbmodel.Post.id.desc())
+        .all()
+    )
+
+    result_posts = []
+
+    for post in posts:
+
+        likes_count = db.query(dbmodel.Like).filter(
+            dbmodel.Like.post_id == post.id
+        ).count()
+
+        saves_count = db.query(dbmodel.Save).filter(
+            dbmodel.Save.post_id == post.id
+        ).count()
+
+        is_liked = False
+
+        if current_user:
+            is_liked = db.query(dbmodel.Like).filter(
+                dbmodel.Like.post_id == post.id,
+                dbmodel.Like.user_id == current_user
+            ).first() is not None
+
+        result_posts.append({
+            "id": post.id,
+            "title": post.title,
+            "content": post.content,
+            "user_id": post.user_id,
+            "images": post.images,
+            "likes_count": likes_count,
+            "saves_count": saves_count,
+            "is_liked": is_liked,
+        })
+
+    return {
+        "id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "name": user.name,
+        "profile_title": user.profile_title,
+        "profile_description": user.profile_description,
+        "image_url": user.image_url,
+        "followers_count": followers_count,
+        "following_count": following_count,
+        "posts": result_posts
+    }
 
 
 # =========================
