@@ -149,7 +149,7 @@ def create_profile(
 # GET CURRENT USER
 # =========================
 
-@app.get("/me", response_model=model.UserOut)
+@app.get("/me")
 def get_profile(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user)
@@ -158,24 +158,69 @@ def get_profile(
     user = crud.get_user_by_id(db, user_id)
 
     if not user:
-        raise HTTPException(
-            status_code=404,
-            detail="User not found"
-        )
+        raise HTTPException(status_code=404, detail="User not found")
 
-    user.followers_count = db.query(
-        dbmodel.Follow
-    ).filter(
+    # followers / following count
+    followers_count = db.query(dbmodel.Follow).filter(
         dbmodel.Follow.following_id == user.id
     ).count()
 
-    user.following_count = db.query(
-        dbmodel.Follow
-    ).filter(
+    following_count = db.query(dbmodel.Follow).filter(
         dbmodel.Follow.follower_id == user.id
     ).count()
 
-    return user
+    # ✅ GET USER POSTS
+    posts = (
+        db.query(dbmodel.Post)
+        .options(joinedload(dbmodel.Post.images))
+        .filter(dbmodel.Post.user_id == user.id)
+        .order_by(dbmodel.Post.id.desc())
+        .all()
+    )
+
+    post_list = []
+
+    for post in posts:
+
+        likes_count = db.query(dbmodel.Like).filter(
+            dbmodel.Like.post_id == post.id
+        ).count()
+
+        saves_count = db.query(dbmodel.Save).filter(
+            dbmodel.Save.post_id == post.id
+        ).count()
+
+        post_list.append({
+            "id": post.id,
+            "title": post.title,
+            "content": post.content,
+            "images": [
+                {
+                    "id": img.id,
+                    "image_url": img.image_url,
+                    "public_id": img.public_id
+                }
+                for img in post.images
+            ],
+            "likes_count": likes_count,
+            "saves_count": saves_count,
+        })
+
+    return {
+        "id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "name": user.name,
+        "profile_title": user.profile_title,
+        "profile_description": user.profile_description,
+        "image_url": user.profile_image,
+
+        "followers_count": followers_count,
+        "following_count": following_count,
+
+        # ✅ added posts
+        "posts": post_list
+    }
 
 
 # =========================
