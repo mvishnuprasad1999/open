@@ -710,21 +710,78 @@ def unsave(
 
 @app.post("/follow/{user_id}")
 def follow(
-
     user_id: int,
-
     db: Session = Depends(get_db),
     current_user: int = Depends(get_current_user)
-
 ):
 
-    return crud.follow(
-        db,
-        current_user,
-        user_id
+    # prevent self follow
+    if current_user == user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot follow yourself"
+        )
+
+    # check existing follow
+    existing_follow = db.query(
+        dbmodel.Follow
+    ).filter(
+        dbmodel.Follow.follower_id == current_user,
+        dbmodel.Follow.following_id == user_id
+    ).first()
+
+    # already following
+    if existing_follow:
+        return {
+            "message": "Already following",
+            "is_following": True
+        }
+
+    # create follow
+    new_follow = dbmodel.Follow(
+        follower_id=current_user,
+        following_id=user_id
     )
 
+    db.add(new_follow)
+    db.commit()
 
+    return {
+        "message": "Followed successfully",
+        "is_following": True
+    }
+
+# =========================
+# UNFOLLOW USER
+# =========================
+@app.delete("/follow/{user_id}")
+def unfollow(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: int = Depends(get_current_user)
+):
+
+    follow = db.query(
+        dbmodel.Follow
+    ).filter(
+        dbmodel.Follow.follower_id == current_user,
+        dbmodel.Follow.following_id == user_id
+    ).first()
+
+    if not follow:
+        raise HTTPException(
+            status_code=404,
+            detail="Follow not found"
+        )
+
+    db.delete(follow)
+
+    db.commit()
+
+    return {
+        "message": "Unfollowed successfully",
+        "is_following": False
+    }
 # =========================
 # UNLIKE POST
 # =========================
