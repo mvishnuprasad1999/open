@@ -780,6 +780,28 @@ def save(
 ):
     return crud.save_post(db, user_id, post_id)
 
+@app.get("/user-following/{user_id}")
+def get_user_following(
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    user = (
+        db.query(dbmodel.User)
+        .filter(dbmodel.User.id == user_id)
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+
+    following_users = user.following
+
+    return following_users
+
+
 
 # =========================
 # GET SAVED POSTS (FIXED)
