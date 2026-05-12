@@ -507,11 +507,61 @@ def my_posts(
 # GET POSTS BY USER ID
 # =========================
 
+# @app.get("/user-posts/{user_id}", response_model=List[model.PostOut])
+# def get_user_posts(
+#     user_id: int,
+#     db: Session = Depends(get_db),
+# ):
+#     posts_data = (
+#         db.query(dbmodel.Post)
+#         .options(
+#             joinedload(dbmodel.Post.images),
+#             joinedload(dbmodel.Post.user),
+#         )
+#         .filter(dbmodel.Post.user_id == user_id)
+#         .order_by(dbmodel.Post.id.desc())
+#         .all()
+#     )
+
+#     result = []
+
+#     for post in posts_data:
+#         likes_count = (
+#             db.query(dbmodel.Like)
+#             .filter(dbmodel.Like.post_id == post.id)
+#             .count()
+#         )
+
+#         saves_count = (
+#             db.query(dbmodel.Save)
+#             .filter(dbmodel.Save.post_id == post.id)
+#             .count()
+#         )
+
+#         result.append({
+#             "id": post.id,
+#             "title": post.title,
+#             "content": post.content,
+#             "user_id": post.user_id,
+#             "user": post.user,
+#             "images": post.images,
+#             "likes_count": likes_count,
+#             "saves_count": saves_count,
+#             "is_liked": False,
+#         })
+
+#     return result
+# =========================
+# GET POSTS BY USER ID
+# =========================
+
 @app.get("/user-posts/{user_id}", response_model=List[model.PostOut])
 def get_user_posts(
     user_id: int,
     db: Session = Depends(get_db),
+    current_user: Optional[int] = Depends(get_current_user_optional)
 ):
+
     posts_data = (
         db.query(dbmodel.Post)
         .options(
@@ -526,6 +576,11 @@ def get_user_posts(
     result = []
 
     for post in posts_data:
+
+        # -------------------
+        # counts
+        # -------------------
+
         likes_count = (
             db.query(dbmodel.Like)
             .filter(dbmodel.Like.post_id == post.id)
@@ -538,16 +593,98 @@ def get_user_posts(
             .count()
         )
 
+        followers_count = (
+            db.query(dbmodel.Follow)
+            .filter(dbmodel.Follow.following_id == post.user.id)
+            .count()
+        )
+
+        following_count = (
+            db.query(dbmodel.Follow)
+            .filter(dbmodel.Follow.follower_id == post.user.id)
+            .count()
+        )
+
+        # -------------------
+        # states
+        # -------------------
+
+        is_liked = False
+        is_saved = False
+        is_following = False
+
+        if current_user:
+
+            is_liked = (
+                db.query(dbmodel.Like)
+                .filter(
+                    dbmodel.Like.post_id == post.id,
+                    dbmodel.Like.user_id == current_user
+                )
+                .first()
+                is not None
+            )
+
+            is_saved = (
+                db.query(dbmodel.Save)
+                .filter(
+                    dbmodel.Save.post_id == post.id,
+                    dbmodel.Save.user_id == current_user
+                )
+                .first()
+                is not None
+            )
+
+            is_following = (
+                db.query(dbmodel.Follow)
+                .filter(
+                    dbmodel.Follow.follower_id == current_user,
+                    dbmodel.Follow.following_id == post.user.id
+                )
+                .first()
+                is not None
+            )
+
+        # -------------------
+        # final response
+        # -------------------
+
         result.append({
+
             "id": post.id,
             "title": post.title,
             "content": post.content,
             "user_id": post.user_id,
-            "user": post.user,
-            "images": post.images,
+
+            "user": {
+                "id": post.user.id,
+                "email": post.user.email,
+                "name": post.user.name,
+                "username": post.user.username,
+                "profile_title": post.user.profile_title,
+                "profile_description": post.user.profile_description,
+                "profile_image": post.user.profile_image,
+
+                "followers_count": followers_count,
+                "following_count": following_count,
+
+                "is_following": is_following,
+            },
+
+            "images": [
+                {
+                    "id": image.id,
+                    "image_url": image.image_url,
+                    "public_id": image.public_id
+                }
+                for image in post.images
+            ],
+
             "likes_count": likes_count,
             "saves_count": saves_count,
-            "is_liked": False,
+
+            "is_liked": is_liked,
+            "is_saved": is_saved,
         })
 
     return result
