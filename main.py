@@ -381,20 +381,22 @@ def create_post(
 # =========================
 # GET POSTS (WITH IMAGES)
 # =========================
+
 @app.get("/posts")
 def get_posts(
     db: Session = Depends(get_db),
-    current_user: int = Depends(
-        get_current_user_optional
-    )
+    current_user: Optional[int] = Depends(get_current_user_optional)
 ):
 
-    posts = db.query(
-        dbmodel.Post
-    ).options(
-        joinedload(dbmodel.Post.user),
-        joinedload(dbmodel.Post.images)
-    ).all()
+    posts = (
+        db.query(dbmodel.Post)
+        .options(
+            joinedload(dbmodel.Post.user),
+            joinedload(dbmodel.Post.images)
+        )
+        .order_by(dbmodel.Post.id.desc())
+        .all()
+    )
 
     result = []
 
@@ -406,6 +408,7 @@ def get_posts(
 
         if current_user:
 
+            # LIKE
             like = db.query(
                 dbmodel.Like
             ).filter(
@@ -413,13 +416,15 @@ def get_posts(
                 dbmodel.Like.post_id == post.id
             ).first()
 
+            # SAVE
             save = db.query(
-                dbmodel.SavePost
+                dbmodel.Save
             ).filter(
-                dbmodel.SavePost.user_id == current_user,
-                dbmodel.SavePost.post_id == post.id
+                dbmodel.Save.user_id == current_user,
+                dbmodel.Save.post_id == post.id
             ).first()
 
+            # FOLLOW
             follow = db.query(
                 dbmodel.Follow
             ).filter(
@@ -431,14 +436,23 @@ def get_posts(
             is_saved = save is not None
             is_following = follow is not None
 
+        likes_count = db.query(
+            dbmodel.Like
+        ).filter(
+            dbmodel.Like.post_id == post.id
+        ).count()
+
+        saves_count = db.query(
+            dbmodel.Save
+        ).filter(
+            dbmodel.Save.post_id == post.id
+        ).count()
+
         result.append({
 
             "id": post.id,
-
             "title": post.title,
-
             "content": post.content,
-
             "user_id": post.user_id,
 
             "user": {
@@ -448,28 +462,24 @@ def get_posts(
                 "username": post.user.username,
                 "profile_title": post.user.profile_title,
                 "profile_image": post.user.profile_image,
-                "profile_description":
-                    post.user.profile_description,
-
-                # IMPORTANT
+                "profile_description": post.user.profile_description,
                 "is_following": is_following,
             },
 
             "images": [
                 {
-                    "image_url": image.image_url
+                    "id": image.id,
+                    "image_url": image.image_url,
+                    "public_id": image.public_id
                 }
                 for image in post.images
             ],
 
-            "likes_count": len(post.likes),
-
-            "saves_count": len(post.saves),
+            "likes_count": likes_count,
+            "saves_count": saves_count,
 
             "is_liked": is_liked,
-
             "is_saved": is_saved,
-
             "is_following": is_following,
         })
 
