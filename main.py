@@ -384,50 +384,55 @@ def create_post(
 @app.get("/posts")
 def get_posts(
     db: Session = Depends(get_db),
-    current_user: int = Depends(get_current_user)
+    current_user: int = Depends(
+        get_current_user_optional
+    )
 ):
 
     posts = db.query(
         dbmodel.Post
-    ).order_by(
-        dbmodel.Post.id.desc()
+    ).options(
+        joinedload(dbmodel.Post.user),
+        joinedload(dbmodel.Post.images)
     ).all()
 
     result = []
 
     for post in posts:
 
-        # LIKE COUNT
-        likes_count = db.query(
-            dbmodel.Like
-        ).filter(
-            dbmodel.Like.post_id == post.id
-        ).count()
+        is_liked = False
+        is_saved = False
+        is_following = False
 
-        # SAVE COUNT
-        saves_count = db.query(
-            dbmodel.Save
-        ).filter(
-            dbmodel.Save.post_id == post.id
-        ).count()
+        if current_user:
 
-        # IS LIKED
-        is_liked = db.query(
-            dbmodel.Like
-        ).filter(
-            dbmodel.Like.post_id == post.id,
-            dbmodel.Like.user_id == current_user
-        ).first() is not None
+            like = db.query(
+                dbmodel.Like
+            ).filter(
+                dbmodel.Like.user_id == current_user,
+                dbmodel.Like.post_id == post.id
+            ).first()
 
-        # IS FOLLOWING
-        is_following = db.query(
-            dbmodel.Follow
-        ).filter(
-            dbmodel.Follow.follower_id == current_user,
-            dbmodel.Follow.following_id == post.user_id
-        ).first() is not None
+            save = db.query(
+                dbmodel.SavePost
+            ).filter(
+                dbmodel.SavePost.user_id == current_user,
+                dbmodel.SavePost.post_id == post.id
+            ).first()
+
+            follow = db.query(
+                dbmodel.Follow
+            ).filter(
+                dbmodel.Follow.follower_id == current_user,
+                dbmodel.Follow.following_id == post.user_id
+            ).first()
+
+            is_liked = like is not None
+            is_saved = save is not None
+            is_following = follow is not None
 
         result.append({
+
             "id": post.id,
 
             "title": post.title,
@@ -443,8 +448,11 @@ def get_posts(
                 "username": post.user.username,
                 "profile_title": post.user.profile_title,
                 "profile_image": post.user.profile_image,
-                "profile_description": post.user.profile_description,
-                "is_profile_complete": post.user.is_profile_complete,
+                "profile_description":
+                    post.user.profile_description,
+
+                # IMPORTANT
+                "is_following": is_following,
             },
 
             "images": [
@@ -454,17 +462,18 @@ def get_posts(
                 for image in post.images
             ],
 
-            "likes_count": likes_count,
+            "likes_count": len(post.likes),
 
-            "saves_count": saves_count,
+            "saves_count": len(post.saves),
 
             "is_liked": is_liked,
 
-            # IMPORTANT
+            "is_saved": is_saved,
+
             "is_following": is_following,
         })
 
-    return resultt
+    return result
 
 # =========================
 # logged user POST
