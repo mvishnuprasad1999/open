@@ -46,6 +46,28 @@ class UserOut(BaseModel):
         from_attributes = True
 
 
+class UserMiniOut(BaseModel):
+    id: int
+    email: EmailStr
+
+    name: Optional[str] = None
+    username: Optional[str] = None
+
+    profile_title: Optional[str] = None
+    profile_image: Optional[str] = None
+    profile_description: Optional[str] = None
+
+    is_profile_complete: bool = False
+
+    followers_count: int = 0
+    following_count: int = 0
+
+    is_following: bool = False
+
+    class Config:
+        from_attributes = True
+
+
 # =========================
 # POST IMAGE
 # =========================
@@ -68,13 +90,15 @@ class PostOut(BaseModel):
     content: str
 
     user_id: int
-    user: UserOut
+    user: UserMiniOut
 
     images: List[PostImageOut]
 
     likes_count: Optional[int] = 0
     saves_count: Optional[int] = 0
+
     is_liked: Optional[bool] = False
+    is_saved: Optional[bool] = False
 
     class Config:
         from_attributes = True
