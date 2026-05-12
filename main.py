@@ -381,62 +381,90 @@ def create_post(
 # =========================
 # GET POSTS (WITH IMAGES)
 # =========================
-@app.get("/posts", response_model=List[model.PostOut])
-def posts(
+@app.get("/posts")
+def get_posts(
     db: Session = Depends(get_db),
-    user_id: Optional[int] = Depends(get_current_user_optional),
+    current_user: int = Depends(get_current_user)
 ):
-    posts_data = (
-        db.query(dbmodel.Post)
-        .options(
-            joinedload(dbmodel.Post.images),
-            joinedload(dbmodel.Post.user),
-        )
-        .order_by(dbmodel.Post.id.desc())
-        .all()
-    )
+
+    posts = db.query(
+        dbmodel.Post
+    ).order_by(
+        dbmodel.Post.id.desc()
+    ).all()
 
     result = []
 
-    for post in posts_data:
-        likes_count = (
-            db.query(dbmodel.Like)
-            .filter(dbmodel.Like.post_id == post.id)
-            .count()
-        )
+    for post in posts:
 
-        saves_count = (
-            db.query(dbmodel.Save)
-            .filter(dbmodel.Save.post_id == post.id)
-            .count()
-        )
+        # LIKE COUNT
+        likes_count = db.query(
+            dbmodel.Like
+        ).filter(
+            dbmodel.Like.post_id == post.id
+        ).count()
 
-        is_liked = False
+        # SAVE COUNT
+        saves_count = db.query(
+            dbmodel.Save
+        ).filter(
+            dbmodel.Save.post_id == post.id
+        ).count()
 
-        if user_id is not None:
-            is_liked = (
-                db.query(dbmodel.Like)
-                .filter(
-                    dbmodel.Like.post_id == post.id,
-                    dbmodel.Like.user_id == user_id,
-                )
-                .first()
-                is not None
-            )
+        # IS LIKED
+        is_liked = db.query(
+            dbmodel.Like
+        ).filter(
+            dbmodel.Like.post_id == post.id,
+            dbmodel.Like.user_id == current_user
+        ).first() is not None
+
+        # IS FOLLOWING
+        is_following = db.query(
+            dbmodel.Follow
+        ).filter(
+            dbmodel.Follow.follower_id == current_user,
+            dbmodel.Follow.following_id == post.user_id
+        ).first() is not None
 
         result.append({
             "id": post.id,
+
             "title": post.title,
+
             "content": post.content,
+
             "user_id": post.user_id,
-            "user": post.user,
-            "images": post.images,
+
+            "user": {
+                "id": post.user.id,
+                "email": post.user.email,
+                "name": post.user.name,
+                "username": post.user.username,
+                "profile_title": post.user.profile_title,
+                "profile_image": post.user.profile_image,
+                "profile_description": post.user.profile_description,
+                "is_profile_complete": post.user.is_profile_complete,
+            },
+
+            "images": [
+                {
+                    "image_url": image.image_url
+                }
+                for image in post.images
+            ],
+
             "likes_count": likes_count,
+
             "saves_count": saves_count,
+
             "is_liked": is_liked,
+
+            # IMPORTANT
+            "is_following": is_following,
         })
 
-    return result
+    return resultt
 
 # =========================
 # logged user POST
