@@ -43,6 +43,8 @@ class User(Base):
     # SAVES
     saves = relationship("Save", back_populates="user")
 
+    tasks = relationship("Task", back_populates="user")
+
 
 class Post(Base):
     __tablename__ = "posts"
@@ -119,3 +121,69 @@ class Follow(Base):
         foreign_keys=[following_id],
         back_populates="followers"
     )
+
+# =========================
+# TASK
+# =========================
+
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id = Column(Integer, primary_key=True)
+
+    user_id = Column(Integer, ForeignKey("users.id"))
+
+    title = Column(String)
+    content = Column(Text)
+
+    embedding = Column(Vector(384), nullable=True)
+
+    user = relationship("User", back_populates="tasks")
+
+    images = relationship(
+        "TaskImage",
+        back_populates="task",
+        cascade="all, delete"
+    )
+
+    solutions = relationship(
+        "TaskSolution",
+        back_populates="task",
+        cascade="all, delete"
+    )
+
+
+# =========================
+# TASK IMAGES
+# =========================
+
+class TaskImage(Base):
+    __tablename__ = "task_images"
+
+    id = Column(Integer, primary_key=True)
+
+    task_id = Column(Integer, ForeignKey("tasks.id"))
+
+    image_url = Column(String)
+    public_id = Column(String)
+
+    task = relationship("Task", back_populates="images")
+
+
+# =========================
+# TASK SOLUTIONS / COMMENTS
+# =========================
+
+class TaskSolution(Base):
+    __tablename__ = "task_solutions"
+
+    id = Column(Integer, primary_key=True)
+
+    task_id = Column(Integer, ForeignKey("tasks.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+
+    content = Column(Text)
+
+    task = relationship("Task", back_populates="solutions")
+
+    user = relationship("User")

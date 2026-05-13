@@ -1215,3 +1215,420 @@ def context_preview(query: str, db: Session = Depends(get_db)):
     """
     context = retrieve_context(query, db)
     return {"query": query, "context": context}
+
+
+
+
+
+# =========================
+# CREATE TASK
+# =========================
+
+@app.post("/create-task")
+def create_task(
+
+    title: str = Form(...),
+    content: str = Form(...),
+
+    files: List[UploadFile] = File([]),
+
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+
+):
+
+    user = db.query(dbmodel.User).filter(
+        dbmodel.User.id == user_id
+    ).first()
+
+    task = dbmodel.Task(
+        title=title,
+        content=content,
+        user_id=user_id
+    )
+
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+
+    # upload images
+    for f in files:
+
+        uploaded = upload_image(file=f)
+
+        image = dbmodel.TaskImage(
+            task_id=task.id,
+            image_url=uploaded["url"],
+            public_id=uploaded["public_id"]
+        )
+
+        db.add(image)
+
+    db.commit()
+
+    return {
+        "message": "Task created",
+        "task_id": task.id
+    }
+
+
+# =========================
+# GET TASKS
+# =========================
+
+@app.get("/tasks")
+def get_tasks(
+    db: Session = Depends(get_db)
+):
+
+    tasks = (
+        db.query(dbmodel.Task)
+        .options(
+            joinedload(dbmodel.Task.user),
+            joinedload(dbmodel.Task.images),
+            joinedload(dbmodel.Task.solutions)
+        )
+        .order_by(dbmodel.Task.id.desc())
+        .all()
+    )
+
+    result = []
+
+    for task in tasks:
+
+        solutions = []
+
+        for sol in task.solutions:
+
+            solutions.append({
+                "id": sol.id,
+                "content": sol.content,
+                "user": {
+                    "id": sol.user.id,
+                    "username": sol.user.username,
+                    "name": sol.user.name,
+                    "profile_image": sol.user.profile_image
+                }
+            })
+
+        result.append({
+
+            "id": task.id,
+            "title": task.title,
+            "content": task.content,
+
+            "user_id": task.user.id,
+
+            "user": {
+                "id": task.user.id,
+                "username": task.user.username,
+                "name": task.user.name,
+                "profile_image": task.user.profile_image
+            },
+
+            "images": [
+                {
+                    "id": img.id,
+                    "image_url": img.image_url
+                }
+                for img in task.images
+            ],
+
+            "solutions": solutions
+        })
+
+    return result
+
+
+
+# =========================
+# ADD TASK SOLUTION
+# =========================
+
+@app.post("/task-solution/{task_id}")
+def add_solution(
+
+    task_id: int,
+
+    content: str = Form(...),
+
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+
+):
+
+    task = db.query(dbmodel.Task).filter(
+        dbmodel.Task.id == task_id
+    ).first()
+
+    if not task:
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found"
+        )
+
+    solution = dbmodel.TaskSolution(
+        task_id=task_id,
+        user_id=user_id,
+        content=content
+    )
+
+    db.add(solution)
+    db.commit()
+
+    return {
+        "message": "Solution added"
+    }
+
+
+# =========================
+# DELETE TASK
+# =========================
+
+@app.delete("/task/{task_id}")
+def delete_task(
+
+    task_id: int,
+
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+
+):
+
+    task = (
+        db.query(dbmodel.Task)
+        .options(
+            joinedload(dbmodel.Task.images),
+            joinedload(dbmodel.Task.solutions)
+        )
+        .filter(dbmodel.Task.id == task_id)
+        .first()
+    )
+
+    if not task:
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found"
+        )
+
+    # only owner can delete
+    if task.user_id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Not allowed"
+        )
+
+    # delete images from cloudinary (optional)
+    for image in task.images:
+
+        try:
+            # cloudinary.uploader.destroy(image.public_id)
+            pass
+        except:
+            pass
+
+        db.delete(image)
+
+    # delete solutions
+    for solution in task.solutions:
+        db.delete(solution)
+
+    # delete task
+    db.delete(task)
+
+    db.commit()
+
+    return {
+        "message": "Task deleted successfully"
+    }
+
+
+# =========================
+# MY TASKS
+# =========================
+
+@app.get("/my-tasks")
+def my_tasks(
+
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+
+):
+
+    tasks = (
+        db.query(dbmodel.Task)
+        .options(
+            joinedload(dbmodel.Task.user),
+            joinedload(dbmodel.Task.images),
+            joinedload(dbmodel.Task.solutions)
+        )
+        .filter(dbmodel.Task.user_id == user_id)
+        .order_by(dbmodel.Task.id.desc())
+        .all()
+    )
+
+    result = []
+
+    for task in tasks:
+
+        result.append({
+
+            "id": task.id,
+            "title": task.title,
+            "content": task.content,
+
+            "user": {
+                "id": task.user.id,
+                "username": task.user.username,
+                "name": task.user.name,
+                "profile_image": task.user.profile_image
+            },
+
+            "images": [
+                {
+                    "id": img.id,
+                    "image_url": img.image_url
+                }
+                for img in task.images
+            ],
+
+            "solutions_count": len(task.solutions)
+        })
+
+    return result
+
+
+# =========================
+# GET TASKS BY USER ID
+# =========================
+
+@app.get("/user-tasks/{user_id}")
+def get_user_tasks(
+
+    user_id: int,
+
+    db: Session = Depends(get_db)
+
+):
+
+    user = (
+        db.query(dbmodel.User)
+        .filter(dbmodel.User.id == user_id)
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    tasks = (
+        db.query(dbmodel.Task)
+        .options(
+            joinedload(dbmodel.Task.user),
+            joinedload(dbmodel.Task.images),
+            joinedload(dbmodel.Task.solutions)
+        )
+        .filter(dbmodel.Task.user_id == user_id)
+        .order_by(dbmodel.Task.id.desc())
+        .all()
+    )
+
+    result = []
+
+    for task in tasks:
+
+        result.append({
+
+            "id": task.id,
+            "title": task.title,
+            "content": task.content,
+
+            "user": {
+                "id": task.user.id,
+                "username": task.user.username,
+                "name": task.user.name,
+                "profile_image": task.user.profile_image
+            },
+
+            "images": [
+                {
+                    "id": img.id,
+                    "image_url": img.image_url
+                }
+                for img in task.images
+            ],
+
+            "solutions_count": len(task.solutions)
+        })
+
+    return result
+
+# =========================
+# GET SINGLE TASK
+# =========================
+
+@app.get("/task/{task_id}")
+def get_single_task(
+
+    task_id: int,
+
+    db: Session = Depends(get_db)
+
+):
+
+    task = (
+        db.query(dbmodel.Task)
+        .options(
+            joinedload(dbmodel.Task.user),
+            joinedload(dbmodel.Task.images),
+            joinedload(dbmodel.Task.solutions)
+            .joinedload(dbmodel.TaskSolution.user)
+        )
+        .filter(dbmodel.Task.id == task_id)
+        .first()
+    )
+
+    if not task:
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found"
+        )
+
+    return {
+
+        "id": task.id,
+        "title": task.title,
+        "content": task.content,
+
+        "user": {
+            "id": task.user.id,
+            "username": task.user.username,
+            "name": task.user.name,
+            "profile_image": task.user.profile_image
+        },
+
+        "images": [
+            {
+                "id": img.id,
+                "image_url": img.image_url
+            }
+            for img in task.images
+        ],
+
+        "solutions": [
+            {
+                "id": sol.id,
+                "content": sol.content,
+
+                "user": {
+                    "id": sol.user.id,
+                    "username": sol.user.username,
+                    "name": sol.user.name,
+                    "profile_image": sol.user.profile_image
+                }
+            }
+            for sol in task.solutions
+        ]
+    }

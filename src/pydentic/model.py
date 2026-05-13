@@ -176,3 +176,36 @@ class ChatResponse(BaseModel):
     context_used: Optional[str] = None   # optional: show what DB data was pulled
 
 
+# task
+
+class TaskImageOut(BaseModel):
+    image_url: str
+
+    class Config:
+        from_attributes = True
+
+class TaskSolutionOut(BaseModel):
+    id: int
+    content: str
+
+    user: UserMiniOut
+
+    class Config:
+        from_attributes = True
+
+class TaskOut(BaseModel):
+    id: int
+
+    title: str
+    content: str
+
+    user_id: int
+
+    user: UserMiniOut
+
+    images: List[TaskImageOut] = []
+
+    solutions: List[TaskSolutionOut] = []
+
+    class Config:
+        from_attributes = True
