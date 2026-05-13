@@ -799,11 +799,26 @@ def get_user_following(
             detail="User not found",
         )
 
-    following_users = user.following
+    # get follow rows
+    following_rows = (
+        db.query(dbmodel.Follow)
+        .filter(dbmodel.Follow.follower_id == user_id)
+        .all()
+    )
 
     result = []
 
-    for following_user in following_users:
+    for row in following_rows:
+
+        # get actual followed user
+        following_user = (
+            db.query(dbmodel.User)
+            .filter(dbmodel.User.id == row.following_id)
+            .first()
+        )
+
+        if not following_user:
+            continue
 
         is_following = False
 
@@ -843,15 +858,11 @@ def get_user_following(
             "username": following_user.username,
             "profile_title": following_user.profile_title,
             "profile_description": following_user.profile_description,
-
-            # image
             "image_url": following_user.profile_image,
 
-            # counts
             "followers_count": followers_count,
             "following_count": following_count,
 
-            # follow state
             "is_following": is_following,
         })
 
