@@ -14,6 +14,11 @@ from src.rerank import rerank_results
 from src.rag_chat import chat_with_rag, retrieve_context
 from src.pydentic.model import ChatRequest, ChatResponse
 
+from src.db_core.init_db import init
+init()  # ← must be first, before other imports
+
+from fastapi import FastAPI
+# ... rest of your imports
 
 app = FastAPI()
 

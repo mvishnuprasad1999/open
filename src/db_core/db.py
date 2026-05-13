@@ -56,7 +56,7 @@ def get_db():
     finally:
         db.close()
 
-# pgvector
+# pgvector only — no model imports here
 try:
     with engine.connect() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
@@ -64,16 +64,3 @@ try:
     print("✅ pgvector ready")
 except Exception as e:
     print("⚠️ pgvector error:", e)
-
-# ✅ Import ALL models BEFORE create_all
-# This registers them to Base.metadata
-from src.db_core.dbmodel import (
-    User, Post, PostImage,
-    Like, Save, Follow,
-    Task, TaskImage, TaskSolution   # ← must be here
-)
-
-# ✅ NOW create tables — all models are registered
-Base.metadata.create_all(bind=engine)
-
-print("✅ All tables ensured: users, posts, tasks, likes, saves, follows")
