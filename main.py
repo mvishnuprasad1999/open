@@ -784,7 +784,9 @@ def save(
 def get_user_following(
     user_id: int,
     db: Session = Depends(get_db),
+    current_user: Optional[int] = Depends(get_current_user_optional)
 ):
+
     user = (
         db.query(dbmodel.User)
         .filter(dbmodel.User.id == user_id)
@@ -799,8 +801,61 @@ def get_user_following(
 
     following_users = user.following
 
-    return following_users
+    result = []
 
+    for following_user in following_users:
+
+        is_following = False
+
+        if current_user:
+
+            follow = (
+                db.query(dbmodel.Follow)
+                .filter(
+                    dbmodel.Follow.follower_id == current_user,
+                    dbmodel.Follow.following_id == following_user.id
+                )
+                .first()
+            )
+
+            is_following = follow is not None
+
+        followers_count = (
+            db.query(dbmodel.Follow)
+            .filter(
+                dbmodel.Follow.following_id == following_user.id
+            )
+            .count()
+        )
+
+        following_count = (
+            db.query(dbmodel.Follow)
+            .filter(
+                dbmodel.Follow.follower_id == following_user.id
+            )
+            .count()
+        )
+
+        result.append({
+
+            "id": following_user.id,
+            "name": following_user.name,
+            "username": following_user.username,
+            "profile_title": following_user.profile_title,
+            "profile_description": following_user.profile_description,
+
+            # image
+            "image_url": following_user.profile_image,
+
+            # counts
+            "followers_count": followers_count,
+            "following_count": following_count,
+
+            # follow state
+            "is_following": is_following,
+        })
+
+    return result
 
 
 # =========================
