@@ -49,9 +49,6 @@ SessionLocal = sessionmaker(
     autocommit=False
 )
 
-# =========================
-# DB SESSION
-# =========================
 def get_db():
     db = SessionLocal()
     try:
@@ -59,10 +56,7 @@ def get_db():
     finally:
         db.close()
 
-
-# =========================
-# PGVECTOR SETUP
-# =========================
+# pgvector
 try:
     with engine.connect() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
@@ -71,23 +65,15 @@ try:
 except Exception as e:
     print("⚠️ pgvector error:", e)
 
+# ✅ Import ALL models BEFORE create_all
+# This registers them to Base.metadata
+from src.db_core.dbmodel import (
+    User, Post, PostImage,
+    Like, Save, Follow,
+    Task, TaskImage, TaskSolution   # ← must be here
+)
 
-# =========================
-# IMPORTANT FIX: LOAD MODELS
-# =========================
-# 🔥 THIS IS THE KEY FIX (ALL MODELS MUST BE IMPORTED)
-from src.db_core import dbmodel
-
-# If Task is in separate file, ensure it's explicitly imported too:
-try:
-    from src.db_core.dbmodel import Task, TaskImage, TaskSolution
-except Exception as e:
-    print("⚠️ Task models import issue:", e)
-
-
-# =========================
-# CREATE ALL TABLES
-# =========================
+# ✅ NOW create tables — all models are registered
 Base.metadata.create_all(bind=engine)
 
 print("✅ All tables ensured: users, posts, tasks, likes, saves, follows")
