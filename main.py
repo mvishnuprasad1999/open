@@ -994,15 +994,17 @@ def follow(
         "message": "Followed successfully",
         "is_following": True
     }
-
 # =========================
-# UNFOLLOW USER
+# UNFOLLOW USER         
 # =========================
 @app.delete("/follow/{user_id}")
 def unfollow(
+
     user_id: int,
+
     db: Session = Depends(get_db),
     current_user: int = Depends(get_current_user)
+
 ):
 
     follow = db.query(
@@ -1019,13 +1021,10 @@ def unfollow(
         )
 
     db.delete(follow)
-
     db.commit()
 
-    return {
-        "message": "Unfollowed successfully",
-        "is_following": False
-    }
+    return {"msg": "unfollowed"}    # <-- DELETE TO HERE # <-- DELETE TO HERE
+
 # =========================
 # UNLIKE POST
 # =========================
@@ -1064,34 +1063,6 @@ def unlike(
 # =========================
 # UNFOLLOW USER
 # =========================
-
-@app.delete("/follow/{user_id}")
-def unfollow(
-
-    user_id: int,
-
-    db: Session = Depends(get_db),
-    current_user: int = Depends(get_current_user)
-
-):
-
-    follow = db.query(
-        dbmodel.Follow
-    ).filter(
-        dbmodel.Follow.follower_id == current_user,
-        dbmodel.Follow.following_id == user_id
-    ).first()
-
-    if not follow:
-        raise HTTPException(
-            status_code=404,
-            detail="Follow not found"
-        )
-
-    db.delete(follow)
-    db.commit()
-
-    return {"msg": "unfollowed"}
 
 
 # ---------- RAG SEARCH ----------
