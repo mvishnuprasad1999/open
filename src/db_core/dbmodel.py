@@ -170,8 +170,9 @@ class TaskSolution(Base):
     task_id = Column(Integer, ForeignKey("tasks.id"))
     user_id = Column(Integer, ForeignKey("users.id"))
     content = Column(String)
-    parent_id = Column(Integer, ForeignKey("task_solutions.id"), nullable=True)  # ADD THIS
-    
+    parent_id = Column(Integer, ForeignKey("task_solutions.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)  # ✅ ADD THIS
+
     task = relationship("Task", back_populates="solutions")
     user = relationship("User")
-    replies = relationship("TaskSolution", backref=backref("parent", remote_side=[id]))  # ADD THIS
+    replies = relationship("TaskSolution", backref=backref("parent", remote_side=[id]))
