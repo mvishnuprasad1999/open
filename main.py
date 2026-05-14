@@ -1304,7 +1304,6 @@ def get_tasks(
         solutions = []
 
         for sol in task.solutions:
-
             solutions.append({
                 "id": sol.id,
                 "content": sol.content,
@@ -1317,20 +1316,17 @@ def get_tasks(
             })
 
         result.append({
-
             "id": task.id,
             "title": task.title,
             "content": task.content,
-
+            "created_at": task.created_at.isoformat() if task.created_at else None,  # ✅
             "user_id": task.user.id,
-
             "user": {
                 "id": task.user.id,
                 "username": task.user.username,
                 "name": task.user.name,
                 "profile_image": task.user.profile_image
             },
-
             "images": [
                 {
                     "id": img.id,
@@ -1338,12 +1334,10 @@ def get_tasks(
                 }
                 for img in task.images
             ],
-
             "solutions": solutions
         })
 
     return result
-
 
 
 # =========================

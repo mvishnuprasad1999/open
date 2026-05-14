@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Text, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, Boolean,DateTime
 from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
 from src.db_core.db import Base
+from datetime import datetime
 
 
 class User(Base):
@@ -126,32 +127,20 @@ class Follow(Base):
 # TASK
 # =========================
 
+
 class Task(Base):
     __tablename__ = "tasks"
 
     id = Column(Integer, primary_key=True)
-
     user_id = Column(Integer, ForeignKey("users.id"))
-
     title = Column(String)
     content = Column(Text)
-
+    created_at = Column(DateTime, default=datetime.utcnow)  # ✅ add this
     embedding = Column(Vector(384), nullable=True)
 
     user = relationship("User", back_populates="tasks")
-
-    images = relationship(
-        "TaskImage",
-        back_populates="task",
-        cascade="all, delete"
-    )
-
-    solutions = relationship(
-        "TaskSolution",
-        back_populates="task",
-        cascade="all, delete"
-    )
-
+    images = relationship("TaskImage", back_populates="task", cascade="all, delete")
+    solutions = relationship("TaskSolution", back_populates="task", cascade="all, delete")
 
 # =========================
 # TASK IMAGES
