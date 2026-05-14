@@ -165,14 +165,13 @@ class TaskImage(Base):
 
 class TaskSolution(Base):
     __tablename__ = "task_solutions"
-
-    id = Column(Integer, primary_key=True)
-
+    
+    id = Column(Integer, primary_key=True, index=True)
     task_id = Column(Integer, ForeignKey("tasks.id"))
     user_id = Column(Integer, ForeignKey("users.id"))
-
-    content = Column(Text)
-
+    content = Column(String)
+    parent_id = Column(Integer, ForeignKey("task_solutions.id"), nullable=True)  # ADD THIS
+    
     task = relationship("Task", back_populates="solutions")
-
     user = relationship("User")
+    replies = relationship("TaskSolution", backref=backref("parent", remote_side=[id]))  # ADD THIS
