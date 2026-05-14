@@ -1283,13 +1283,18 @@ def create_task(
 
 @app.get("/tasks")
 def get_tasks(db: Session = Depends(get_db)):
+
     tasks = (
         db.query(dbmodel.Task)
         .options(
             joinedload(dbmodel.Task.user),
             joinedload(dbmodel.Task.images),
-            joinedload(dbmodel.Task.solutions).joinedload(dbmodel.TaskSolution.user),
-            joinedload(dbmodel.Task.solutions).joinedload(dbmodel.TaskSolution.replies).joinedload(dbmodel.TaskSolution.user),
+            joinedload(dbmodel.Task.solutions)
+                .joinedload(dbmodel.TaskSolution.user),
+
+            joinedload(dbmodel.Task.solutions)
+                .joinedload(dbmodel.TaskSolution.replies)
+                .joinedload(dbmodel.TaskSolution.user),
         )
         .order_by(dbmodel.Task.id.desc())
         .all()
@@ -1297,38 +1302,82 @@ def get_tasks(db: Session = Depends(get_db)):
 
     result = []
 
+    def build_reply(reply):
+
+        return {
+            "id": reply.id,
+            "content": reply.content,
+            "parent_id": reply.parent_id,
+
+            "user": {
+                "id": reply.user.id if reply.user else None,
+                "username": reply.user.username if reply.user else "",
+                "name": reply.user.name if reply.user else "",
+                "profile_image": reply.user.profile_image if reply.user else "",
+            }
+        }
+
     for task in tasks:
-        def build_solution(sol):
-            return {
+
+        top_level_solutions = [
+            s for s in task.solutions
+            if s.parent_id is None
+        ]
+
+        solutions_data = []
+
+        for sol in top_level_solutions:
+
+            replies_data = []
+
+            for r in sol.replies:
+                replies_data.append(build_reply(r))
+
+            solutions_data.append({
+
                 "id": sol.id,
                 "content": sol.content,
                 "parent_id": sol.parent_id,
-                "user": {
-                    "id": sol.user.id,
-                    "username": sol.user.username,
-                    "name": sol.user.name,
-                    "profile_image": sol.user.profile_image
-                },
-                "replies": [build_solution(r) for r in sol.replies]
-            }
 
-        # Only top-level solutions (parent_id is None)
-        top_level_solutions = [s for s in task.solutions if s.parent_id is None]
+                "user": {
+                    "id": sol.user.id if sol.user else None,
+                    "username": sol.user.username if sol.user else "",
+                    "name": sol.user.name if sol.user else "",
+                    "profile_image": sol.user.profile_image if sol.user else "",
+                },
+
+                "replies": replies_data
+            })
 
         result.append({
+
             "id": task.id,
             "title": task.title,
             "content": task.content,
-            "created_at": task.created_at.isoformat() if task.created_at else None,
+
+            "created_at": (
+                task.created_at.isoformat()
+                if task.created_at else None
+            ),
+
             "user_id": task.user.id,
+
             "user": {
                 "id": task.user.id,
                 "username": task.user.username,
                 "name": task.user.name,
                 "profile_image": task.user.profile_image
             },
-            "images": [{"id": img.id, "image_url": img.image_url} for img in task.images],
-            "solutions": [build_solution(s) for s in top_level_solutions]
+
+            "images": [
+                {
+                    "id": img.id,
+                    "image_url": img.image_url
+                }
+                for img in task.images
+            ],
+
+            "solutions": solutions_data
         })
 
     return result
