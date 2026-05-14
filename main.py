@@ -1281,9 +1281,113 @@ def create_task(
 # GET TASKS
 # =========================
 
+# @app.get("/tasks")
+# def get_tasks(db: Session = Depends(get_db)):
+
+#     tasks = (
+#         db.query(dbmodel.Task)
+#         .options(
+#             joinedload(dbmodel.Task.user),
+#             joinedload(dbmodel.Task.images),
+#             joinedload(dbmodel.Task.solutions)
+#                 .joinedload(dbmodel.TaskSolution.user),
+
+#             joinedload(dbmodel.Task.solutions)
+#                 .joinedload(dbmodel.TaskSolution.replies)
+#                 .joinedload(dbmodel.TaskSolution.user),
+#         )
+#         .order_by(dbmodel.Task.id.desc())
+#         .all()
+#     )
+
+#     result = []
+
+#     def build_reply(reply):
+
+#         return {
+#             "id": reply.id,
+#             "content": reply.content,
+#             "parent_id": reply.parent_id,
+
+#             "user": {
+#                 "id": reply.user.id if reply.user else None,
+#                 "username": reply.user.username if reply.user else "",
+#                 "name": reply.user.name if reply.user else "",
+#                 "profile_image": reply.user.profile_image if reply.user else "",
+#             }
+#         }
+
+#     for task in tasks:
+
+#         top_level_solutions = [
+#             s for s in task.solutions
+#             if s.parent_id is None
+#         ]
+
+#         solutions_data = []
+
+#         for sol in top_level_solutions:
+
+#             replies_data = []
+
+#             for r in sol.replies:
+#                 replies_data.append(build_reply(r))
+
+#             solutions_data.append({
+
+#                 "id": sol.id,
+#                 "content": sol.content,
+#                 "parent_id": sol.parent_id,
+
+#                 "user": {
+#                     "id": sol.user.id if sol.user else None,
+#                     "username": sol.user.username if sol.user else "",
+#                     "name": sol.user.name if sol.user else "",
+#                     "profile_image": sol.user.profile_image if sol.user else "",
+#                 },
+
+#                 "replies": replies_data
+#             })
+
+#         result.append({
+
+#             "id": task.id,
+#             "title": task.title,
+#             "content": task.content,
+
+#             "created_at": (
+#                 task.created_at.isoformat()
+#                 if task.created_at else None
+#             ),
+
+#             "user_id": task.user.id,
+
+#             "user": {
+#                 "id": task.user.id,
+#                 "username": task.user.username,
+#                 "name": task.user.name,
+#                 "profile_image": task.user.profile_image
+#             },
+
+#             "images": [
+#                 {
+#                     "id": img.id,
+#                     "image_url": img.image_url
+#                 }
+#                 for img in task.images
+#             ],
+
+#             "solutions": solutions_data
+#         })
+
+#     return result
+# =========================
+# GET TASKS  —  replace the existing /tasks endpoint
+# =========================
+ 
 @app.get("/tasks")
 def get_tasks(db: Session = Depends(get_db)):
-
+ 
     tasks = (
         db.query(dbmodel.Task)
         .options(
@@ -1291,7 +1395,6 @@ def get_tasks(db: Session = Depends(get_db)):
             joinedload(dbmodel.Task.images),
             joinedload(dbmodel.Task.solutions)
                 .joinedload(dbmodel.TaskSolution.user),
-
             joinedload(dbmodel.Task.solutions)
                 .joinedload(dbmodel.TaskSolution.replies)
                 .joinedload(dbmodel.TaskSolution.user),
@@ -1299,16 +1402,16 @@ def get_tasks(db: Session = Depends(get_db)):
         .order_by(dbmodel.Task.id.desc())
         .all()
     )
-
+ 
     result = []
-
+ 
     def build_reply(reply):
-
         return {
             "id": reply.id,
             "content": reply.content,
             "parent_id": reply.parent_id,
-
+            # ✅ ADDED
+            "created_at": reply.created_at.isoformat() if reply.created_at else None,
             "user": {
                 "id": reply.user.id if reply.user else None,
                 "username": reply.user.username if reply.user else "",
@@ -1316,95 +1419,107 @@ def get_tasks(db: Session = Depends(get_db)):
                 "profile_image": reply.user.profile_image if reply.user else "",
             }
         }
-
+ 
     for task in tasks:
-
+ 
         top_level_solutions = [
             s for s in task.solutions
             if s.parent_id is None
         ]
-
+ 
         solutions_data = []
-
+ 
         for sol in top_level_solutions:
-
-            replies_data = []
-
-            for r in sol.replies:
-                replies_data.append(build_reply(r))
-
+ 
+            replies_data = [build_reply(r) for r in sol.replies]
+ 
             solutions_data.append({
-
                 "id": sol.id,
                 "content": sol.content,
                 "parent_id": sol.parent_id,
-
+                # ✅ ADDED
+                "created_at": sol.created_at.isoformat() if sol.created_at else None,
                 "user": {
                     "id": sol.user.id if sol.user else None,
                     "username": sol.user.username if sol.user else "",
                     "name": sol.user.name if sol.user else "",
                     "profile_image": sol.user.profile_image if sol.user else "",
                 },
-
                 "replies": replies_data
             })
-
+ 
         result.append({
-
             "id": task.id,
             "title": task.title,
             "content": task.content,
-
-            "created_at": (
-                task.created_at.isoformat()
-                if task.created_at else None
-            ),
-
+            "created_at": task.created_at.isoformat() if task.created_at else None,
             "user_id": task.user.id,
-
             "user": {
                 "id": task.user.id,
                 "username": task.user.username,
                 "name": task.user.name,
                 "profile_image": task.user.profile_image
             },
-
             "images": [
-                {
-                    "id": img.id,
-                    "image_url": img.image_url
-                }
+                {"id": img.id, "image_url": img.image_url}
                 for img in task.images
             ],
-
             "solutions": solutions_data
         })
-
+ 
     return result
 
+# @app.post("/task-solution/{task_id}")
+# def add_solution(
+#     task_id: int,
+#     content: str = Form(...),
+#     parent_id: Optional[int] = Form(None),   # ADD THIS
+#     db: Session = Depends(get_db),
+#     user_id: int = Depends(get_current_user)
+# ):
+#     task = db.query(dbmodel.Task).filter(dbmodel.Task.id == task_id).first()
+#     if not task:
+#         raise HTTPException(status_code=404, detail="Task not found")
+
+#     solution = dbmodel.TaskSolution(
+#         task_id=task_id,
+#         user_id=user_id,
+#         content=content,
+#         parent_id=parent_id   # ADD THIS
+#     )
+
+#     db.add(solution)
+#     db.commit()
+#     return {"message": "Solution added"}
+
+#====================
+# task solution
+#=====================
 
 @app.post("/task-solution/{task_id}")
 def add_solution(
     task_id: int,
     content: str = Form(...),
-    parent_id: Optional[int] = Form(None),   # ADD THIS
+    parent_id: Optional[int] = Form(None),
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user)
 ):
     task = db.query(dbmodel.Task).filter(dbmodel.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-
+ 
     solution = dbmodel.TaskSolution(
         task_id=task_id,
         user_id=user_id,
         content=content,
-        parent_id=parent_id   # ADD THIS
+        parent_id=parent_id
+        # created_at is set automatically by the DB default — no change needed here
     )
-
+ 
     db.add(solution)
     db.commit()
     return {"message": "Solution added"}
+ 
 
 # =========================
 # DELETE TASK
@@ -1594,59 +1709,51 @@ def get_user_tasks(
 # GET SINGLE TASK
 # =========================
 
+# =========================
+# GET SINGLE TASK  —  replace the existing /task/{task_id} endpoint
+# =========================
+ 
 @app.get("/task/{task_id}")
 def get_single_task(
-
     task_id: int,
-
     db: Session = Depends(get_db)
-
 ):
-
+ 
     task = (
         db.query(dbmodel.Task)
         .options(
             joinedload(dbmodel.Task.user),
             joinedload(dbmodel.Task.images),
             joinedload(dbmodel.Task.solutions)
-            .joinedload(dbmodel.TaskSolution.user)
+                .joinedload(dbmodel.TaskSolution.user)
         )
         .filter(dbmodel.Task.id == task_id)
         .first()
     )
-
+ 
     if not task:
-        raise HTTPException(
-            status_code=404,
-            detail="Task not found"
-        )
-
+        raise HTTPException(status_code=404, detail="Task not found")
+ 
     return {
-
         "id": task.id,
         "title": task.title,
         "content": task.content,
-
         "user": {
             "id": task.user.id,
             "username": task.user.username,
             "name": task.user.name,
             "profile_image": task.user.profile_image
         },
-
         "images": [
-            {
-                "id": img.id,
-                "image_url": img.image_url
-            }
+            {"id": img.id, "image_url": img.image_url}
             for img in task.images
         ],
-
         "solutions": [
             {
                 "id": sol.id,
                 "content": sol.content,
-
+                # ✅ ADDED
+                "created_at": sol.created_at.isoformat() if sol.created_at else None,
                 "user": {
                     "id": sol.user.id,
                     "username": sol.user.username,
